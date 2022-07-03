@@ -1,2 +1,3 @@
 # kaiseki
-Experimental simulation/emulation and virtualization engine.
+
+An open-source multiplatform emulation and virtualization engine.
