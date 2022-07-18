@@ -11,5 +11,8 @@ members = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+eframe = { version = "0.18" }
+egui = { version = "0.18" }
+egui-winit = { version = "0.18" }
 kaiseki-core = { path = "kaiseki-core" }
 tokio = { version = "1", features = ["full"] }
