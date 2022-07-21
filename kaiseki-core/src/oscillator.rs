@@ -1,63 +1,64 @@
 use std::fmt;
+use crate::bus::BusConnection;
 use crate::component::Component;
 
 #[derive(Debug)]
-pub struct Error;
-pub type Result<T> = core::result::Result<T, Error>;
-
-pub trait OscillatorClient {
-    fn tick(&mut self) {}
+pub enum OscillatorError {
+    Unknown,
 }
 
-pub struct Oscillator<'a> {
-    clients: Vec<&'a mut dyn OscillatorClient>,
+pub type Result<T> = std::result::Result<T, OscillatorError>;
+
+pub struct Oscillator {
+    bus: Option<BusConnection>,
+    cycles: u64,
     frequency_hz: u64,
 }
 
-impl<'a> Component for Oscillator<'a> { }
+impl Component for Oscillator {
+    fn connect_to_bus(&mut self, bus: BusConnection) {
+        self.bus = Some(bus);
+    }
 
-impl<'a> fmt::Debug for Oscillator<'a> {
+    fn start(&mut self) {
+        let freq: f64 = self.frequency_hz as f64;
+        let period_secs: f64 = 1.0 / freq;
+        println!("starting oscillator with period {}ns", period_secs);
+
+        let start_time = std::time::Instant::now();
+        let period = std::time::Duration::from_secs_f64(period_secs);
+
+        loop {
+            self.bus.as_ref().unwrap().tick(self.cycles);
+
+            let period_start = std::time::Instant::now();
+            std::thread::sleep(period);
+            self.cycles += 1;
+            let period_end = std::time::Instant::now();
+            let total_elapsed = period_end - start_time;
+            let period_elapsed = period_end - period_start;
+
+            println!(
+                "last tick elapsed: {}ns (total: {} secs)",
+                period_elapsed.as_nanos(),
+                total_elapsed.as_secs_f32()
+            );
+        }
+    }
+}
+
+impl fmt::Debug for Oscillator {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Oscillator: {}hz", self.frequency_hz)
     }
 }
 
-impl<'a> Oscillator<'a> {
+impl Oscillator {
     pub fn new(frequency_hz: u64) -> Self {
         Oscillator {
-            clients: Vec::new(),
+            bus: None,
+            cycles: 0,
             frequency_hz,
-        }
-    }
-
-    pub fn register_client(&mut self, client: &'a mut dyn OscillatorClient) -> Result<()> {
-        self.clients.push(client);
-        Ok(())
-    }
-
-    pub async fn start(&mut self) -> Result<()> {
-        let freq: f64 = self.frequency_hz as f64;
-        let period_secs: f64 = 1.0 / freq;
-        println!(
-            "starting oscillator with period {} ms",
-            period_secs * 1000.0
-        );
-        let period = std::time::Duration::from_secs_f64(period_secs);
-        let mut interval_timer = tokio::time::interval(period);
-        let start_instant = tokio::time::Instant::now();
-
-        loop {
-            let now_instant = interval_timer.tick().await;
-            let total_elapsed = now_instant.duration_since(start_instant);
-            let last_tick_elapsed = now_instant.elapsed();
-            println!(
-                "last tick elapsed: {}ns (total: {} secs)",
-                last_tick_elapsed.as_nanos(),
-                total_elapsed.as_secs_f32()
-            );
-            for client in &mut self.clients {
-                client.tick();
-            }
         }
     }
 }

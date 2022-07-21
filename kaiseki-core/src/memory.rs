@@ -1,5 +1,8 @@
-use bytes::Bytes;
 use std::sync::Mutex;
+
+use bytes::Bytes;
+
+use crate::bus::{BusConnection, BusMessage};
 use crate::component::Component;
 
 pub trait RAM: Component {
@@ -14,10 +17,31 @@ pub trait RAM: Component {
 
 #[derive(Debug)]
 pub struct SimpleRAM<const N: usize> {
+    bus: Option<BusConnection>,
     memory: Mutex<[u8; N]>,
 }
 
-impl<const N: usize> Component for SimpleRAM<N> {}
+impl<const N: usize> Component for SimpleRAM<N> {
+    fn connect_to_bus(&mut self, bus: BusConnection) {
+        self.bus = Some(bus);
+    }
+
+    fn start(&mut self) {
+        loop {
+            let msg = self.bus.as_ref().unwrap().recv().unwrap();
+            println!("RAM received message: {:#?}", msg);
+            match msg {
+                BusMessage::ReadAddress { address, length, response_channel } => {
+                    let end_addr = address + length;
+                    let slice: &[u8] = &self.memory.lock().unwrap()[address..end_addr];
+                    let mem = bytes::Bytes::copy_from_slice(slice);
+                    response_channel.send(mem);
+                },
+                _ => { }
+            }
+        }
+    }
+}
 
 impl<const N: usize> RAM for SimpleRAM<N> {
     fn read(&self, addr: usize, len: usize) -> Bytes {
@@ -48,6 +72,6 @@ impl<const N: usize> RAM for SimpleRAM<N> {
 
 impl<const N: usize> SimpleRAM<N> {
     pub fn new() -> Self {
-        SimpleRAM { memory: Mutex::new([0; N]) }
+        SimpleRAM { bus: None, memory: Mutex::new([0; N]) }
     }
 }

@@ -5,6 +5,7 @@ edition = "2021"
 
 [workspace]
 members = [
+    "kaiseki-chip8",
     "kaiseki-core",
 ]
 
@@ -14,5 +15,6 @@ members = [
 eframe = { version = "0.18" }
 egui = { version = "0.18" }
 egui-winit = { version = "0.18" }
+kaiseki-chip8 = { path = "kaiseki-chip8" }
 kaiseki-core = { path = "kaiseki-core" }
 tokio = { version = "1", features = ["full"] }
