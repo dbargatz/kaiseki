@@ -1,7 +1,8 @@
 use std::fmt;
+use std::sync::mpsc;
 
 use bytes::Bytes;
-use crossbeam_channel::{bounded, Receiver, Sender};
+use crossbeam_channel::{bounded, Sender};
 
 use crate::component::Component;
 
@@ -12,7 +13,7 @@ pub enum BusError {
 
 pub type Result<T> = std::result::Result<T, BusError>;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum BusMessage {
     OscillatorTick { cycle: u64 },
     RaiseInterrupt,
@@ -30,69 +31,90 @@ pub enum BusMessage {
 
 #[derive(Debug)]
 pub struct BusConnection {
-    recv_from_bus: Receiver<BusMessage>,
-    send_to_bus: Sender<BusMessage>,
+    recv_from_bus: bus::BusReader<BusMessage>,
+    send_to_bus: mpsc::SyncSender<BusMessage>,
 }
 
 impl BusConnection {
-    pub fn new(rx: Receiver<BusMessage>, tx: Sender<BusMessage>) -> Self {
+    pub fn new(rx: bus::BusReader<BusMessage>, tx: mpsc::SyncSender<BusMessage>) -> Self {
         BusConnection { recv_from_bus: rx, send_to_bus: tx }
     }
 
-    pub fn tick(&self, cycle: u64) {
+    pub fn tick(&mut self, cycle: u64) {
         let message = BusMessage::OscillatorTick { cycle };
-        let _ = self.send_to_bus.send(message);
+        let _ = self.send(message);
     }
 
-    pub fn read(&self, address: usize, length: usize) -> Result<Bytes> {
+    pub fn read(&mut self, address: usize, length: usize) -> Result<Bytes> {
         let (response_tx, response_rx) = bounded(1);
         let message = BusMessage::ReadAddress {
             address,
             length,
             response_channel: response_tx
         };
-        let _ = self.send_to_bus.send(message);
+        let _ = self.send(message);
         let result = response_rx.recv().unwrap();
         Ok(result)
     }
 
-    pub fn read_u16(&self, address: usize) -> Result<u16> {
+    pub fn read_u16(&mut self, address: usize) -> Result<u16> {
         let response = self.read(address, 2).unwrap();
         let value: u16 = ((response[0] as u16) << 8) as u16 | response[1] as u16;
         Ok(value)
     }
 
-    pub fn recv(&self) -> Result<BusMessage> {
+    pub fn recv(&mut self) -> Result<BusMessage> {
         let msg = self.recv_from_bus.recv().unwrap();
         Ok(msg)
     }
 
-    pub fn write(&self, address: usize, data: Bytes) -> Result<Bytes> {
+    pub fn send(&mut self, message: BusMessage) {
+        self.send_to_bus.send(message.clone());
+    }
+
+    pub fn write(&mut self, address: usize, data: Bytes) -> Result<Bytes> {
         let (response_tx, response_rx) = bounded(1);
         let message = BusMessage::WriteAddress {
             address,
             data,
             response_channel: response_tx
         };
-        let _ = self.send_to_bus.send(message);
+        let _ = self.send(message);
         let result = response_rx.recv().unwrap();
         Ok(result)
     }
 }
 
 pub struct Bus {
-    memory_rx: Receiver<BusMessage>,
-    memory_tx: Sender<BusMessage>,
+    rx: mpsc::Receiver<BusMessage>,
+    tx: mpsc::SyncSender<BusMessage>,
+    bus: bus::Bus<BusMessage>
+}
+
+impl Component for Bus {
+    fn connect_to_bus(&mut self, _bus: BusConnection) {
+        println!("can't connect bus to bus yet");
+    }
+
+    fn start(&mut self) {
+        loop {
+            for msg in self.rx.iter() {
+                self.bus.broadcast(msg);
+            }
+        }
+    }
 }
 
 impl Bus {
     pub fn new() -> Self {
-        let (tx, rx) = bounded(100);
-        Bus { memory_rx: rx, memory_tx: tx }
+        let (tx, rx) = mpsc::sync_channel(100);
+        let bus = bus::Bus::<BusMessage>::new(1);
+        Bus { rx, tx, bus }
     }
 
-    pub fn connect(&self, component: &mut impl Component) {
-        let conn = BusConnection::new(self.memory_rx.clone(), self.memory_tx.clone());
+    pub fn connect(&mut self, component: &mut impl Component) {
+        let rx = self.bus.add_rx();
+        let conn = BusConnection::new(rx, self.tx.clone());
         component.connect_to_bus(conn);
     }
 

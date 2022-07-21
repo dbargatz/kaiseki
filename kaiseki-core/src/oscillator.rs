@@ -28,8 +28,11 @@ impl Component for Oscillator {
         let start_time = std::time::Instant::now();
         let period = std::time::Duration::from_secs_f64(period_secs);
 
+        let bus = self.bus.as_mut().unwrap();
+
         loop {
-            self.bus.as_ref().unwrap().tick(self.cycles);
+            bus.tick(self.cycles);
+            let _ = bus.recv().unwrap();
 
             let period_start = std::time::Instant::now();
             std::thread::sleep(period);

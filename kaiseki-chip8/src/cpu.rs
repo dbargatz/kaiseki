@@ -67,8 +67,9 @@ impl Component for Chip8CPU {
     }
 
     fn start(&mut self) {
+        let mut bus = self.bus.as_mut().unwrap();
         loop {
-            let msg = self.bus.as_ref().unwrap().recv().unwrap();
+            let msg = bus.recv().unwrap();
             match msg {
                 BusMessage::OscillatorTick { cycle } => {
                     println!("CPU received tick {}", cycle);

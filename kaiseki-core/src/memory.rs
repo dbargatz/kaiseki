@@ -27,9 +27,9 @@ impl<const N: usize> Component for SimpleRAM<N> {
     }
 
     fn start(&mut self) {
+        let bus = self.bus.as_mut().unwrap();
         loop {
-            let msg = self.bus.as_ref().unwrap().recv().unwrap();
-            println!("RAM received message: {:#?}", msg);
+            let msg = bus.recv().unwrap();
             match msg {
                 BusMessage::ReadAddress { address, length, response_channel } => {
                     let end_addr = address + length;

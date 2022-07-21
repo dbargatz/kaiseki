@@ -4,5 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+bus = { version = "2" }
 bytes = { version = "1" }
 crossbeam-channel = { version = "0.5" }
