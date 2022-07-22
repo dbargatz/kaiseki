@@ -2,13 +2,6 @@ use crate::bus::BusConnection;
 use crate::component::Component;
 use std::fmt;
 
-#[derive(Debug)]
-pub enum OscillatorError {
-    Unknown,
-}
-
-pub type Result<T> = std::result::Result<T, OscillatorError>;
-
 pub struct Oscillator {
     bus: Option<BusConnection>,
     cycles: u64,
@@ -43,11 +36,15 @@ impl Component for Oscillator {
             let total_elapsed = period_end - start_time;
             let period_elapsed = period_end - period_start;
             let expected_elapsed = period_duration.mul_f64(self.cycles as f64);
-            if expected_elapsed > total_elapsed {
-                period = period_duration + (expected_elapsed - total_elapsed);
-            } else if expected_elapsed < total_elapsed {
-                let diff = total_elapsed - expected_elapsed;
-                period = period_duration.saturating_sub(diff);
+            match expected_elapsed.cmp(&total_elapsed) {
+                std::cmp::Ordering::Less => {
+                    let diff = total_elapsed - expected_elapsed;
+                    period = period_duration.saturating_sub(diff);
+                }
+                std::cmp::Ordering::Greater => {
+                    period = period_duration + (expected_elapsed - total_elapsed);
+                }
+                std::cmp::Ordering::Equal => {}
             }
 
             println!(

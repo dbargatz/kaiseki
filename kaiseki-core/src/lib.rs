@@ -50,7 +50,7 @@ impl<C: 'static + Send + Component> Runner<C> {
         match handle {
             None => {}
             Some(joiner) => {
-                joiner.join();
+                let _ = joiner.join();
             }
         }
     }

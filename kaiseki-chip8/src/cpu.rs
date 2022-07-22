@@ -46,6 +46,12 @@ pub struct Chip8Stack {
     pub slots: [u16; 16],
 }
 
+impl Default for Chip8Stack {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Chip8Stack {
     pub fn new() -> Self {
         Chip8Stack { slots: [0; 16] }
@@ -67,14 +73,11 @@ impl Component for Chip8CPU {
     }
 
     fn start(&mut self) {
-        let mut bus = self.bus.as_mut().unwrap();
+        let bus = self.bus.as_mut().unwrap();
         loop {
             let msg = bus.recv().unwrap();
-            match msg {
-                BusMessage::OscillatorTick { cycle } => {
-                    println!("CPU received tick {}", cycle);
-                }
-                _ => {}
+            if let BusMessage::OscillatorTick { cycle } = msg {
+                println!("CPU received tick {} (stack: {:#?}", cycle, self.stack);
             }
         }
     }

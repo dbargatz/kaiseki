@@ -74,7 +74,7 @@ impl BusConnection {
     }
 
     pub fn send(&mut self, message: BusMessage) {
-        self.send_to_bus.send(message.clone());
+        let _ = self.send_to_bus.send(message);
     }
 
     pub fn write(&mut self, address: usize, data: Bytes) -> Result<Bytes> {
@@ -107,6 +107,12 @@ impl Component for Bus {
                 self.bus.broadcast(msg);
             }
         }
+    }
+}
+
+impl Default for Bus {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
