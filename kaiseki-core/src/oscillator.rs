@@ -25,13 +25,13 @@ impl Component for Oscillator {
         let bus = self.bus.as_mut().unwrap();
 
         loop {
-            bus.tick(self.cycles);
-            let _ = bus.recv().unwrap();
 
             let period_start = std::time::Instant::now();
             std::thread::sleep(period);
-            let period_end = std::time::Instant::now();
             self.cycles += 1;
+            bus.tick(self.cycles);
+            let _ = bus.recv().unwrap();
+            let period_end = std::time::Instant::now();
 
             let total_elapsed = period_end - start_time;
             let period_elapsed = period_end - period_start;
