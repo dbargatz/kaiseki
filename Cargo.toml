@@ -17,4 +17,3 @@ egui = { version = "0.18" }
 egui-winit = { version = "0.18" }
 kaiseki-chip8 = { path = "kaiseki-chip8" }
 kaiseki-core = { path = "kaiseki-core" }
-tokio = { version = "1", features = ["full"] }
