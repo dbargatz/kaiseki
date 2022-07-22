@@ -15,7 +15,9 @@ pub type Result<T> = std::result::Result<T, BusError>;
 
 #[derive(Clone, Debug)]
 pub enum BusMessage {
-    OscillatorTick { cycle: u64 },
+    OscillatorTick {
+        cycle: u64,
+    },
     RaiseInterrupt,
     ReadAddress {
         address: usize,
@@ -37,7 +39,10 @@ pub struct BusConnection {
 
 impl BusConnection {
     pub fn new(rx: bus::BusReader<BusMessage>, tx: mpsc::SyncSender<BusMessage>) -> Self {
-        BusConnection { recv_from_bus: rx, send_to_bus: tx }
+        BusConnection {
+            recv_from_bus: rx,
+            send_to_bus: tx,
+        }
     }
 
     pub fn tick(&mut self, cycle: u64) {
@@ -50,7 +55,7 @@ impl BusConnection {
         let message = BusMessage::ReadAddress {
             address,
             length,
-            response_channel: response_tx
+            response_channel: response_tx,
         };
         let _ = self.send(message);
         let result = response_rx.recv().unwrap();
@@ -77,7 +82,7 @@ impl BusConnection {
         let message = BusMessage::WriteAddress {
             address,
             data,
-            response_channel: response_tx
+            response_channel: response_tx,
         };
         let _ = self.send(message);
         let result = response_rx.recv().unwrap();
@@ -88,7 +93,7 @@ impl BusConnection {
 pub struct Bus {
     rx: mpsc::Receiver<BusMessage>,
     tx: mpsc::SyncSender<BusMessage>,
-    bus: bus::Bus<BusMessage>
+    bus: bus::Bus<BusMessage>,
 }
 
 impl Component for Bus {

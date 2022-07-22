@@ -31,13 +31,17 @@ impl<const N: usize> Component for SimpleRAM<N> {
         loop {
             let msg = bus.recv().unwrap();
             match msg {
-                BusMessage::ReadAddress { address, length, response_channel } => {
+                BusMessage::ReadAddress {
+                    address,
+                    length,
+                    response_channel,
+                } => {
                     let end_addr = address + length;
                     let slice: &[u8] = &self.memory.lock().unwrap()[address..end_addr];
                     let mem = bytes::Bytes::copy_from_slice(slice);
                     response_channel.send(mem);
-                },
-                _ => { }
+                }
+                _ => {}
             }
         }
     }
@@ -46,7 +50,7 @@ impl<const N: usize> Component for SimpleRAM<N> {
 impl<const N: usize> RAM for SimpleRAM<N> {
     fn read(&self, addr: usize, len: usize) -> Bytes {
         let memory = self.memory.lock().unwrap();
-        Bytes::copy_from_slice(&memory[addr..addr+len])
+        Bytes::copy_from_slice(&memory[addr..addr + len])
     }
 
     fn read_u8(&self, addr: usize) -> u8 {
@@ -72,6 +76,9 @@ impl<const N: usize> RAM for SimpleRAM<N> {
 
 impl<const N: usize> SimpleRAM<N> {
     pub fn new() -> Self {
-        SimpleRAM { bus: None, memory: Mutex::new([0; N]) }
+        SimpleRAM {
+            bus: None,
+            memory: Mutex::new([0; N]),
+        }
     }
 }

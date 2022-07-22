@@ -1,3 +1,3 @@
 use crate::component::Component;
 
-pub trait CPU: Component { }
+pub trait CPU: Component {}

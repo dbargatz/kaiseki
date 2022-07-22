@@ -1,6 +1,6 @@
-use std::fmt;
 use crate::bus::BusConnection;
 use crate::component::Component;
+use std::fmt;
 
 #[derive(Debug)]
 pub enum OscillatorError {

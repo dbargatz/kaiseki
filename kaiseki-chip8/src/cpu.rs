@@ -1,4 +1,4 @@
-use kaiseki_core::{BusConnection, BusMessage, Component, CPU, SimpleRAM};
+use kaiseki_core::{BusConnection, BusMessage, Component, SimpleRAM, CPU};
 
 #[derive(Debug, Default)]
 #[allow(non_snake_case)]
@@ -73,14 +73,14 @@ impl Component for Chip8CPU {
             match msg {
                 BusMessage::OscillatorTick { cycle } => {
                     println!("CPU received tick {}", cycle);
-                },
-                _ => { }
+                }
+                _ => {}
             }
         }
     }
 }
 
-impl CPU for Chip8CPU { }
+impl CPU for Chip8CPU {}
 
 impl Chip8CPU {
     pub fn new(initial_pc: u16) -> Self {

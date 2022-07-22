@@ -1,5 +1,5 @@
-use kaiseki_core::{Bus, Component, Machine, Oscillator, RAM, Result, Runner};
 use crate::cpu::{Chip8CPU, Chip8RAM};
+use kaiseki_core::{Bus, Component, Machine, Oscillator, Result, Runner, RAM};
 
 #[derive(Debug)]
 pub struct Chip8Machine {
@@ -26,7 +26,7 @@ impl Component for Chip8Machine {
     }
 }
 
-impl Machine for Chip8Machine { }
+impl Machine for Chip8Machine {}
 
 impl Chip8Machine {
     pub fn new(program: &[u8]) -> Result<Chip8Machine> {
@@ -46,7 +46,12 @@ impl Chip8Machine {
         let oscrun = Runner::new(osc);
         let busrun = Runner::new(bus);
 
-        let machine = Chip8Machine { bus: busrun, cpu: cpurun, ram: ramrun, system_clock: oscrun };
+        let machine = Chip8Machine {
+            bus: busrun,
+            cpu: cpurun,
+            ram: ramrun,
+            system_clock: oscrun,
+        };
         Ok(machine)
 
         // TODO: BUS BETWEEN CPU AND MEMORY

@@ -3,23 +3,26 @@ use std::sync::{Arc, Mutex};
 mod bus;
 mod component;
 mod cpu;
-mod oscillator;
 mod machine;
 mod memory;
+mod oscillator;
 
 pub use crate::bus::{Bus, BusConnection, BusMessage};
 pub use crate::component::Component;
 pub use crate::cpu::CPU;
-pub use crate::oscillator::Oscillator;
 pub use crate::machine::Machine;
-pub use crate::memory::{RAM, SimpleRAM};
+pub use crate::memory::{SimpleRAM, RAM};
+pub use crate::oscillator::Oscillator;
 
 #[derive(Debug)]
 pub struct Error;
 pub type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Debug)]
-pub struct Runner<C> where C: 'static + Send + Component {
+pub struct Runner<C>
+where
+    C: 'static + Send + Component,
+{
     inner: Arc<Mutex<C>>,
     handle: Option<std::thread::JoinHandle<()>>,
 }
@@ -27,7 +30,10 @@ pub struct Runner<C> where C: 'static + Send + Component {
 impl<C: 'static + Send + Component> Runner<C> {
     pub fn new(component: C) -> Self {
         let inner = Arc::new(Mutex::new(component));
-        Runner { inner, handle: None }
+        Runner {
+            inner,
+            handle: None,
+        }
     }
 
     pub fn start(&mut self) {
@@ -42,8 +48,10 @@ impl<C: 'static + Send + Component> Runner<C> {
     pub fn stop(&mut self) {
         let handle = std::mem::take(&mut self.handle);
         match handle {
-            None => { },
-            Some(joiner) => { joiner.join(); }
+            None => {}
+            Some(joiner) => {
+                joiner.join();
+            }
         }
     }
 }
