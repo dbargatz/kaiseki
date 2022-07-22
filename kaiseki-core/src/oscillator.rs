@@ -25,7 +25,6 @@ impl Component for Oscillator {
         let bus = self.bus.as_mut().unwrap();
 
         loop {
-
             let period_start = std::time::Instant::now();
             std::thread::sleep(period);
             self.cycles += 1;
