@@ -48,7 +48,8 @@ impl Component for Oscillator {
             }
 
             println!(
-                "last tick elapsed: {}ns (total: {} secs)",
+                "[OSC] tick: {} | elapsed: {}ns | total: {}s",
+                self.cycles,
                 period_elapsed.as_nanos(),
                 total_elapsed.as_secs_f32()
             );

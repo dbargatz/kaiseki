@@ -1,4 +1,5 @@
 use kaiseki_core::{BusConnection, BusMessage, Component, SimpleRAM, CPU};
+use std::fmt;
 
 #[derive(Debug, Default)]
 #[allow(non_snake_case)]
@@ -41,9 +42,14 @@ impl Chip8Registers {
     }
 }
 
-#[derive(Debug)]
 pub struct Chip8Stack {
     pub slots: [u16; 16],
+}
+
+impl fmt::Debug for Chip8Stack {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Chip-8 Stack").finish()
+    }
 }
 
 impl Default for Chip8Stack {
@@ -77,7 +83,7 @@ impl Component for Chip8CPU {
         loop {
             let msg = bus.recv().unwrap();
             if let BusMessage::OscillatorTick { cycle } = msg {
-                println!("CPU received tick {} (stack: {:#?}", cycle, self.stack);
+                println!("[CPU] tick: {} | stack: {:?}", cycle, self.stack);
             }
         }
     }
