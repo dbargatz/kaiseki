@@ -98,7 +98,7 @@ pub struct Bus {
 
 impl Component for Bus {
     fn connect_to_bus(&mut self, _bus: BusConnection) {
-        println!("can't connect bus to bus yet");
+        tracing::info!("can't connect bus to bus yet");
     }
 
     fn start(&mut self) {
@@ -130,7 +130,7 @@ impl Bus {
     }
 
     pub fn start(&self) {
-        println!("Bus started.");
+        tracing::info!("Bus started.");
     }
 }
 

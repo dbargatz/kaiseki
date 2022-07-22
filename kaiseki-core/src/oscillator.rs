@@ -17,7 +17,7 @@ impl Component for Oscillator {
         let freq: f64 = self.frequency_hz as f64;
         let period_secs: f64 = 1.0 / freq;
         let period_duration = std::time::Duration::from_secs_f64(period_secs);
-        println!("starting oscillator with period {}ns", period_secs);
+        tracing::info!("starting oscillator with period {}ns", period_secs);
 
         let start_time = std::time::Instant::now();
         let mut period = period_duration;
@@ -47,8 +47,8 @@ impl Component for Oscillator {
                 std::cmp::Ordering::Equal => {}
             }
 
-            println!(
-                "[OSC] tick: {} | elapsed: {}ns | total: {}s",
+            tracing::info!(
+                "tick: {} | elapsed: {}ns | total: {}s",
                 self.cycles,
                 period_elapsed.as_nanos(),
                 total_elapsed.as_secs_f32()

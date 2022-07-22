@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 kaiseki-core = { path = "../kaiseki-core" }
+tracing = { version = "0.1" }

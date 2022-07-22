@@ -7,3 +7,4 @@ edition = "2021"
 bus = { version = "2" }
 bytes = { version = "1" }
 crossbeam-channel = { version = "0.5" }
+tracing = { version = "0.1" }

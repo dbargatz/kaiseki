@@ -11,11 +11,11 @@ pub struct Chip8Machine {
 
 impl Component for Chip8Machine {
     fn connect_to_bus(&mut self, _bus: kaiseki_core::BusConnection) {
-        println!("cannot connect machine to bus");
+        tracing::info!("cannot connect machine to bus");
     }
 
     fn start(&mut self) {
-        println!("starting Chip-8 machine");
+        tracing::info!("starting Chip-8 machine");
 
         self.bus.start();
         self.cpu.start();

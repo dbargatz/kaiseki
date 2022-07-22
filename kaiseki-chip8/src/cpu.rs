@@ -83,7 +83,7 @@ impl Component for Chip8CPU {
         loop {
             let msg = bus.recv().unwrap();
             if let BusMessage::OscillatorTick { cycle } = msg {
-                println!("[CPU] tick: {} | stack: {:?}", cycle, self.stack);
+                tracing::info!("tick: {} | stack: {:?}", cycle, self.stack);
             }
         }
     }
