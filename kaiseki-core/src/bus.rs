@@ -70,10 +70,12 @@ impl BusConnection {
 
     pub fn recv(&mut self) -> Result<BusMessage> {
         let msg = self.recv_from_bus.recv().unwrap();
+        tracing::trace!("received from bus: {:?}", msg);
         Ok(msg)
     }
 
     pub fn send(&mut self, message: BusMessage) {
+        tracing::trace!("sending to bus: {:?}", message);
         let _ = self.send_to_bus.send(message);
     }
 

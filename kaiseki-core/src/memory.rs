@@ -36,6 +36,7 @@ impl<const N: usize> Component for SimpleRAM<N> {
                 response_channel,
             } = msg
             {
+                tracing::info!("read request: {} bytes at 0x{:X}", length, address);
                 let end_addr = address + length;
                 let slice: &[u8] = &self.memory.lock().unwrap()[address..end_addr];
                 let mem = bytes::Bytes::copy_from_slice(slice);
