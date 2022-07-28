@@ -7,7 +7,7 @@ mod machine;
 mod memory;
 mod oscillator;
 
-pub use crate::bus::{Bus, BusConnection, BusMessage, BusMessageMetadata};
+pub use crate::bus::{Bus, BusConnection, BusMessage};
 pub use crate::component::{Component, ComponentId};
 pub use crate::cpu::CPU;
 pub use crate::machine::Machine;

@@ -2,49 +2,26 @@ use std::sync::Mutex;
 
 use bytes::Bytes;
 
-use crate::bus::{Bus, BusConnection, BusMessage, BusMessageMetadata};
+use crate::bus::{Bus, BusConnection, BusMessage};
 use crate::component::{Component, ComponentId};
 
 #[derive(Clone, Debug)]
 pub enum MemoryBusMessage {
     ReadAddress {
-        metadata: BusMessageMetadata,
         address: usize,
         length: usize,
     },
     ReadResponse {
-        metadata: BusMessageMetadata,
         data: Bytes,
     },
     WriteAddress {
-        metadata: BusMessageMetadata,
         address: usize,
         data: Bytes,
     },
-    WriteResponse {
-        metadata: BusMessageMetadata,
-    },
+    WriteResponse,
 }
 
-impl BusMessage for MemoryBusMessage {
-    fn sender(&self) -> ComponentId {
-        match self {
-            MemoryBusMessage::ReadAddress { metadata, .. } => metadata.sender,
-            MemoryBusMessage::ReadResponse { metadata, .. } => metadata.sender,
-            MemoryBusMessage::WriteAddress { metadata, .. } => metadata.sender,
-            MemoryBusMessage::WriteResponse { metadata, .. } => metadata.sender,
-        }
-    }
-
-    fn recipients(&self) -> Vec<ComponentId> {
-        match self {
-            MemoryBusMessage::ReadAddress { metadata, .. } => metadata.recipients.clone(),
-            MemoryBusMessage::ReadResponse { metadata, .. } => metadata.recipients.clone(),
-            MemoryBusMessage::WriteAddress { metadata, .. } => metadata.recipients.clone(),
-            MemoryBusMessage::WriteResponse { metadata, .. } => metadata.recipients.clone(),
-        }
-    }
-}
+impl BusMessage for MemoryBusMessage {}
 
 pub type MemoryBus = Bus<MemoryBusMessage>;
 
@@ -73,23 +50,12 @@ impl<const N: usize> Component for SimpleRAM<N> {
     fn start(&mut self) {
         loop {
             let msg = self.bus.recv().unwrap();
-            if let MemoryBusMessage::ReadAddress {
-                metadata,
-                address,
-                length,
-            } = msg
-            {
+            if let MemoryBusMessage::ReadAddress { address, length } = msg {
                 tracing::trace!("read request: {} bytes at 0x{:X}", length, address);
                 let end_addr = address + length;
                 let slice: &[u8] = &self.memory.lock().unwrap()[address..end_addr];
                 let mem = bytes::Bytes::copy_from_slice(slice);
-                let response = MemoryBusMessage::ReadResponse {
-                    metadata: BusMessageMetadata {
-                        sender: self.id(),
-                        recipients: vec![metadata.sender],
-                    },
-                    data: mem,
-                };
+                let response = MemoryBusMessage::ReadResponse { data: mem };
                 self.bus.send(response);
             }
         }

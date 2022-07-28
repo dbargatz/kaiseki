@@ -1,35 +1,15 @@
-use crate::bus::{Bus, BusConnection, BusMessageMetadata};
+use crate::bus::{Bus, BusConnection};
 use crate::component::{Component, ComponentId};
 use crate::BusMessage;
 use std::fmt;
 
 #[derive(Clone, Debug)]
 pub enum OscillatorBusMessage {
-    CycleStart {
-        metadata: BusMessageMetadata,
-        cycle_number: usize,
-    },
-    CycleEnd {
-        metadata: BusMessageMetadata,
-        cycle_number: usize,
-    },
+    CycleStart { cycle_number: usize },
+    CycleEnd { cycle_number: usize },
 }
 
-impl BusMessage for OscillatorBusMessage {
-    fn sender(&self) -> ComponentId {
-        match self {
-            OscillatorBusMessage::CycleStart { metadata, .. } => metadata.sender,
-            OscillatorBusMessage::CycleEnd { metadata, .. } => metadata.sender,
-        }
-    }
-
-    fn recipients(&self) -> Vec<ComponentId> {
-        match self {
-            OscillatorBusMessage::CycleStart { metadata, .. } => metadata.recipients.clone(),
-            OscillatorBusMessage::CycleEnd { metadata, .. } => metadata.recipients.clone(),
-        }
-    }
-}
+impl BusMessage for OscillatorBusMessage {}
 
 pub type OscillatorBus = Bus<OscillatorBusMessage>;
 
@@ -57,13 +37,7 @@ impl Component for Oscillator {
         loop {
             self.cycles += 1;
             tracing::info!("starting cycle {}", self.cycles);
-            let msg = OscillatorBusMessage::CycleStart {
-                metadata: BusMessageMetadata {
-                    sender: self.id(),
-                    recipients: Vec::new(),
-                },
-                cycle_number: self.cycles,
-            };
+            let msg = OscillatorBusMessage::CycleStart { cycle_number: self.cycles };
             let period_start = std::time::Instant::now();
             self.bus.send(msg);
             let _ = self.bus.recv().unwrap();

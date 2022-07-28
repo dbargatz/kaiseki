@@ -1,5 +1,5 @@
 use kaiseki_core::{
-    BusConnection, BusMessageMetadata, Component, ComponentId, MemoryBus, MemoryBusMessage,
+    BusConnection, Component, ComponentId, MemoryBus, MemoryBusMessage,
     OscillatorBus, OscillatorBusMessage, SimpleRAM, CPU,
 };
 use std::fmt;
@@ -87,23 +87,15 @@ impl Component for Chip8CPU {
         let mut address = 0x200;
         loop {
             let cycle_msg = self.clock_bus.recv().unwrap();
-            if let OscillatorBusMessage::CycleStart {
-                metadata: _,
-                cycle_number,
-            } = cycle_msg
-            {
+            if let OscillatorBusMessage::CycleStart { cycle_number } = cycle_msg {
                 tracing::info!("cycle {} | stack: {:?}", cycle_number, self.stack);
                 let msg = MemoryBusMessage::ReadAddress {
-                    metadata: BusMessageMetadata {
-                        sender: self.id(),
-                        recipients: Vec::new(),
-                    },
                     address,
                     length: 0x2,
                 };
                 self.memory_bus.send(msg);
                 let response = self.memory_bus.recv().unwrap();
-                if let MemoryBusMessage::ReadResponse { metadata: _, data } = response {
+                if let MemoryBusMessage::ReadResponse { data } = response {
                     tracing::info!("data at 0x{:04X}: 0x{:04X}", address, data);
                 } else {
                     tracing::warn!("unexpected message on memory bus: {:?}", response);
@@ -114,13 +106,7 @@ impl Component for Chip8CPU {
                     address = 0x200;
                 }
 
-                let cycle_end = OscillatorBusMessage::CycleEnd {
-                    metadata: BusMessageMetadata {
-                        sender: self.id(),
-                        recipients: Vec::new(),
-                    },
-                    cycle_number,
-                };
+                let cycle_end = OscillatorBusMessage::CycleEnd { cycle_number };
                 self.clock_bus.send(cycle_end);
             }
         }
