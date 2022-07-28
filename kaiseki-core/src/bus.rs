@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use crossbeam_channel::{unbounded, Receiver, Select, Sender};
+use crossbeam_channel::{unbounded, Receiver, Sender, TryRecvError};
 
 use crate::component::{Component, ComponentId};
 
 #[derive(Debug)]
 pub enum BusError {
-    InvalidAddress,
+    Disconnected,
 }
 
 pub type Result<T> = std::result::Result<T, BusError>;
@@ -38,9 +38,18 @@ impl<T: BusMessage> BusConnection<T> {
     }
 
     pub fn recv(&self) -> Result<T> {
-        let envelope = self.recv_from_bus.recv().unwrap();
-        tracing::trace!("received from bus: {:?}", envelope);
-        Ok(envelope.message)
+        loop {
+            match self.recv_from_bus.try_recv() {
+                Ok(envelope) => {
+                    tracing::trace!("received from bus: {:?}", envelope);
+                    return Ok(envelope.message);
+                }
+                Err(TryRecvError::Disconnected) => {
+                    return Err(BusError::Disconnected);
+                }
+                _ => {}
+            }
+        }
     }
 
     pub fn send(&self, message: T) {
@@ -112,20 +121,18 @@ impl<T: BusMessage> Bus<T> {
     }
 
     fn recv(&self) -> Envelope<T> {
-        let receivers: Vec<&Receiver<Envelope<T>>> = self.receivers.values().collect();
-        let mut sel = Select::new();
-        for rx in &receivers {
-            sel.recv(rx);
+        loop {
+            for receiver in self.receivers.values() {
+                if let Ok(envelope) = receiver.try_recv() {
+                    tracing::trace!(
+                        "bus received {:?} from {}",
+                        envelope.message,
+                        envelope.sender_id
+                    );
+                    return envelope;
+                }
+            }
         }
-        let oper = sel.select();
-        let index = oper.index();
-        let envelope = oper.recv(receivers[index]).unwrap();
-        tracing::trace!(
-            "bus received {:?} from {}",
-            envelope.message,
-            envelope.sender_id
-        );
-        envelope
     }
 
     pub fn connect(&mut self, component_id: &ComponentId) -> BusConnection<T> {
