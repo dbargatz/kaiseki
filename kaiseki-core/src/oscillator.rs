@@ -60,7 +60,7 @@ impl Component for Oscillator {
             }
 
             tracing::info!(
-                "ending cycle {} | elapsed: {}ns | next: {}ns | total: {}s | expected: {}s",
+                "ending cycle {} | elapsed: {}ns | next: {}ns | total: {:.3}s | expected: {:.3}s",
                 cycles,
                 period_elapsed.as_nanos(),
                 period.as_nanos(),
