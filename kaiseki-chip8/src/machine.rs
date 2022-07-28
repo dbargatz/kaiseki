@@ -18,7 +18,7 @@ impl Component for Chip8Machine {
         self.id
     }
 
-    fn start(&mut self) {
+    fn start(&self) {
         tracing::info!("starting Chip-8 machine");
 
         self.clock_bus.start();

@@ -65,7 +65,7 @@ impl<T: BusMessage> Component for Bus<T> {
         self.id
     }
 
-    fn start(&mut self) {
+    fn start(&self) {
         loop {
             let envelope = self.recv();
             self.send(envelope);
@@ -101,7 +101,11 @@ impl<T: BusMessage> Bus<T> {
 
         for tx_id in receivers {
             let tx = &self.senders[&tx_id];
-            let new_envelope = Envelope { sender_id: envelope.sender_id, recipient_ids: vec![tx_id], message: envelope.message.clone() };
+            let new_envelope = Envelope {
+                sender_id: envelope.sender_id,
+                recipient_ids: vec![tx_id],
+                message: envelope.message.clone(),
+            };
             tx.send(new_envelope.clone()).unwrap();
             tracing::trace!("bus sent {:?} to {}", new_envelope.message, tx_id);
         }
@@ -116,7 +120,11 @@ impl<T: BusMessage> Bus<T> {
         let oper = sel.select();
         let index = oper.index();
         let envelope = oper.recv(receivers[index]).unwrap();
-        tracing::trace!("bus received {:?} from {}", envelope.message, envelope.sender_id);
+        tracing::trace!(
+            "bus received {:?} from {}",
+            envelope.message,
+            envelope.sender_id
+        );
         envelope
     }
 

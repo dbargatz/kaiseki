@@ -1,6 +1,6 @@
 use kaiseki_core::{
-    BusConnection, Component, ComponentId, MemoryBus, MemoryBusMessage,
-    OscillatorBus, OscillatorBusMessage, SimpleRAM, CPU,
+    BusConnection, Component, ComponentId, MemoryBus, MemoryBusMessage, OscillatorBus,
+    OscillatorBusMessage, SimpleRAM, CPU,
 };
 use std::fmt;
 
@@ -83,7 +83,7 @@ impl Component for Chip8CPU {
         self.id
     }
 
-    fn start(&mut self) {
+    fn start(&self) {
         let mut address = 0x200;
         loop {
             let cycle_msg = self.clock_bus.recv().unwrap();

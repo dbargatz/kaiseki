@@ -4,5 +4,5 @@ pub type ComponentId = Uuid;
 
 pub trait Component {
     fn id(&self) -> ComponentId;
-    fn start(&mut self);
+    fn start(&self);
 }

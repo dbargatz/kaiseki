@@ -24,30 +24,30 @@ where
     C: 'static + Send + Component,
 {
     inner: Arc<Mutex<C>>,
-    handle: Option<std::thread::JoinHandle<()>>,
+    handle: Arc<Mutex<Option<std::thread::JoinHandle<()>>>>,
 }
 
 impl<C: 'static + Send + Component> Runner<C> {
     pub fn new(component: C) -> Self {
         let inner = Arc::new(Mutex::new(component));
-        Runner {
-            inner,
-            handle: None,
-        }
+        let handle = Arc::new(Mutex::new(None));
+        Runner { inner, handle }
     }
 
-    pub fn start(&mut self) {
+    pub fn start(&self) {
         let inner = self.inner.clone();
         let handle = std::thread::spawn(move || {
-            let mut component = inner.lock().unwrap();
+            let component = inner.lock().unwrap();
             component.start();
         });
-        self.handle = Some(handle);
+
+        let mut guard = self.handle.lock().unwrap();
+        *guard = Some(handle);
     }
 
-    pub fn stop(&mut self) {
-        let handle = std::mem::take(&mut self.handle);
-        match handle {
+    pub fn stop(&self) {
+        let guard = self.handle.lock().unwrap().take();
+        match guard {
             None => {}
             Some(joiner) => {
                 let _ = joiner.join();

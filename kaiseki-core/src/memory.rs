@@ -7,17 +7,9 @@ use crate::component::{Component, ComponentId};
 
 #[derive(Clone, Debug)]
 pub enum MemoryBusMessage {
-    ReadAddress {
-        address: usize,
-        length: usize,
-    },
-    ReadResponse {
-        data: Bytes,
-    },
-    WriteAddress {
-        address: usize,
-        data: Bytes,
-    },
+    ReadAddress { address: usize, length: usize },
+    ReadResponse { data: Bytes },
+    WriteAddress { address: usize, data: Bytes },
     WriteResponse,
 }
 
@@ -47,7 +39,7 @@ impl<const N: usize> Component for SimpleRAM<N> {
         self.id
     }
 
-    fn start(&mut self) {
+    fn start(&self) {
         loop {
             let msg = self.bus.recv().unwrap();
             if let MemoryBusMessage::ReadAddress { address, length } = msg {
