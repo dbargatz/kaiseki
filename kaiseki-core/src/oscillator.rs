@@ -60,18 +60,19 @@ impl Component for Oscillator {
             }
 
             tracing::info!(
-                "ending cycle {} | elapsed: {}ns | next: {}ns | total: {}s",
+                "ending cycle {} | elapsed: {}ns | next: {}ns | total: {}s | expected: {}s",
                 cycles,
                 period_elapsed.as_nanos(),
                 period.as_nanos(),
-                total_elapsed.as_secs_f32()
+                total_elapsed.as_secs_f32(),
+                expected_elapsed.as_secs_f32(),
             );
             if !diff.is_zero() {
-                let percent_lag = 100.0 * (diff.as_secs_f32() / total_elapsed.as_secs_f32());
+                let multiplier = total_elapsed.as_secs_f32() / expected_elapsed.as_secs_f32();
                 tracing::warn!(
-                    "oscillator is lagging real-time by {}s ({:.2}%)",
+                    "oscillator is lagging real-time by {:.2}s ({:.2}x slower)",
                     diff.as_secs_f32(),
-                    percent_lag
+                    multiplier,
                 );
             }
 
