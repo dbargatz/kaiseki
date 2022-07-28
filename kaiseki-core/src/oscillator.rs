@@ -1,16 +1,48 @@
-use crate::bus::BusConnection;
-use crate::component::Component;
+use crate::bus::{Bus, BusConnection, BusMessageMetadata};
+use crate::component::{Component, ComponentId};
+use crate::BusMessage;
 use std::fmt;
 
+#[derive(Clone, Debug)]
+pub enum OscillatorBusMessage {
+    CycleStart {
+        metadata: BusMessageMetadata,
+        cycle_number: usize,
+    },
+    CycleEnd {
+        metadata: BusMessageMetadata,
+        cycle_number: usize,
+    },
+}
+
+impl BusMessage for OscillatorBusMessage {
+    fn sender(&self) -> ComponentId {
+        match self {
+            OscillatorBusMessage::CycleStart { metadata, .. } => metadata.sender,
+            OscillatorBusMessage::CycleEnd { metadata, .. } => metadata.sender,
+        }
+    }
+
+    fn recipients(&self) -> Vec<ComponentId> {
+        match self {
+            OscillatorBusMessage::CycleStart { metadata, .. } => metadata.recipients.clone(),
+            OscillatorBusMessage::CycleEnd { metadata, .. } => metadata.recipients.clone(),
+        }
+    }
+}
+
+pub type OscillatorBus = Bus<OscillatorBusMessage>;
+
 pub struct Oscillator {
-    bus: Option<BusConnection>,
-    cycles: u64,
-    frequency_hz: u64,
+    id: ComponentId,
+    bus: BusConnection<OscillatorBusMessage>,
+    cycles: usize,
+    frequency_hz: usize,
 }
 
 impl Component for Oscillator {
-    fn connect_to_bus(&mut self, bus: BusConnection) {
-        self.bus = Some(bus);
+    fn id(&self) -> ComponentId {
+        self.id
     }
 
     fn start(&mut self) {
@@ -22,22 +54,27 @@ impl Component for Oscillator {
         let start_time = std::time::Instant::now();
         let mut period = period_duration;
 
-        let bus = self.bus.as_mut().unwrap();
-
         loop {
-            let period_start = std::time::Instant::now();
-            std::thread::sleep(period);
             self.cycles += 1;
-            bus.tick(self.cycles);
-            let _ = bus.recv().unwrap();
+            tracing::info!("starting cycle {}", self.cycles);
+            let msg = OscillatorBusMessage::CycleStart {
+                metadata: BusMessageMetadata {
+                    sender: self.id(),
+                    recipients: Vec::new(),
+                },
+                cycle_number: self.cycles,
+            };
+            let period_start = std::time::Instant::now();
+            self.bus.send(msg);
+            let _ = self.bus.recv().unwrap();
             let period_end = std::time::Instant::now();
 
             let total_elapsed = period_end - start_time;
             let period_elapsed = period_end - period_start;
             let expected_elapsed = period_duration.mul_f64(self.cycles as f64);
+            let diff = total_elapsed.saturating_sub(expected_elapsed);
             match expected_elapsed.cmp(&total_elapsed) {
                 std::cmp::Ordering::Less => {
-                    let diff = total_elapsed - expected_elapsed;
                     period = period_duration.saturating_sub(diff);
                 }
                 std::cmp::Ordering::Greater => {
@@ -46,12 +83,15 @@ impl Component for Oscillator {
                 std::cmp::Ordering::Equal => {}
             }
 
-            tracing::info!(
-                "tick: {} | elapsed: {}ns | total: {}s",
-                self.cycles,
-                period_elapsed.as_nanos(),
-                total_elapsed.as_secs_f32()
-            );
+            tracing::info!("ending cycle {} | elapsed: {}ns | next: {}ns | total: {}s", self.cycles, period_elapsed.as_nanos(), period.as_nanos(), total_elapsed.as_secs_f32());
+            if !diff.is_zero() {
+                let percent_lag = 100.0 * (diff.as_secs_f32() / total_elapsed.as_secs_f32());
+                tracing::warn!("oscillator is lagging real-time by {}s ({:.2}%)", diff.as_secs_f32(), percent_lag);
+            }
+
+            if !period.is_zero() {
+                spin_sleep::sleep(period);
+            }
         }
     }
 }
@@ -63,9 +103,12 @@ impl fmt::Debug for Oscillator {
 }
 
 impl Oscillator {
-    pub fn new(frequency_hz: u64) -> Self {
+    pub fn new(bus: &mut Bus<OscillatorBusMessage>, frequency_hz: usize) -> Self {
+        let id = ComponentId::new_v4();
+        let conn = bus.connect(&id);
         Oscillator {
-            bus: None,
+            id,
+            bus: conn,
             cycles: 0,
             frequency_hz,
         }

@@ -1,4 +1,7 @@
-use kaiseki_core::{BusConnection, BusMessage, Component, SimpleRAM, CPU};
+use kaiseki_core::{
+    BusConnection, BusMessageMetadata, Component, ComponentId, MemoryBus, MemoryBusMessage,
+    OscillatorBus, OscillatorBusMessage, SimpleRAM, CPU,
+};
 use std::fmt;
 
 #[derive(Debug, Default)]
@@ -68,24 +71,57 @@ pub type Chip8RAM = SimpleRAM<4096>;
 
 #[derive(Debug)]
 pub struct Chip8CPU {
-    bus: Option<BusConnection>,
+    id: ComponentId,
+    clock_bus: BusConnection<OscillatorBusMessage>,
+    memory_bus: BusConnection<MemoryBusMessage>,
     regs: Chip8Registers,
     stack: Chip8Stack,
 }
 
 impl Component for Chip8CPU {
-    fn connect_to_bus(&mut self, bus: BusConnection) {
-        self.bus = Some(bus);
+    fn id(&self) -> ComponentId {
+        self.id
     }
 
     fn start(&mut self) {
-        let bus = self.bus.as_mut().unwrap();
+        let mut address = 0x200;
         loop {
-            let msg = bus.recv().unwrap();
-            if let BusMessage::OscillatorTick { cycle } = msg {
-                tracing::info!("tick: {} | stack: {:?}", cycle, self.stack);
-                let data = bus.read_u16(0x200).unwrap();
-                tracing::info!("data: 0x{:04X}", data);
+            let cycle_msg = self.clock_bus.recv().unwrap();
+            if let OscillatorBusMessage::CycleStart {
+                metadata: _,
+                cycle_number,
+            } = cycle_msg
+            {
+                tracing::info!("cycle {} | stack: {:?}", cycle_number, self.stack);
+                let msg = MemoryBusMessage::ReadAddress {
+                    metadata: BusMessageMetadata {
+                        sender: self.id(),
+                        recipients: Vec::new(),
+                    },
+                    address,
+                    length: 0x2,
+                };
+                self.memory_bus.send(msg);
+                let response = self.memory_bus.recv().unwrap();
+                if let MemoryBusMessage::ReadResponse { metadata: _, data } = response {
+                    tracing::info!("data at 0x{:04X}: 0x{:04X}", address, data);
+                } else {
+                    tracing::warn!("unexpected message on memory bus: {:?}", response);
+                }
+
+                address += 2;
+                if address >= 0x1000 {
+                    address = 0x200;
+                }
+
+                let cycle_end = OscillatorBusMessage::CycleEnd {
+                    metadata: BusMessageMetadata {
+                        sender: self.id(),
+                        recipients: Vec::new(),
+                    },
+                    cycle_number,
+                };
+                self.clock_bus.send(cycle_end);
             }
         }
     }
@@ -94,9 +130,14 @@ impl Component for Chip8CPU {
 impl CPU for Chip8CPU {}
 
 impl Chip8CPU {
-    pub fn new(initial_pc: u16) -> Self {
+    pub fn new(clock_bus: &mut OscillatorBus, memory_bus: &mut MemoryBus, initial_pc: u16) -> Self {
+        let id = ComponentId::new_v4();
+        let clock_conn = clock_bus.connect(&id);
+        let mem_conn = memory_bus.connect(&id);
         let mut cpu = Chip8CPU {
-            bus: None,
+            id,
+            clock_bus: clock_conn,
+            memory_bus: mem_conn,
             regs: Chip8Registers::new(),
             stack: Chip8Stack::new(),
         };

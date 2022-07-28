@@ -2,8 +2,51 @@ use std::sync::Mutex;
 
 use bytes::Bytes;
 
-use crate::bus::{BusConnection, BusMessage};
-use crate::component::Component;
+use crate::bus::{Bus, BusConnection, BusMessage, BusMessageMetadata};
+use crate::component::{Component, ComponentId};
+
+#[derive(Clone, Debug)]
+pub enum MemoryBusMessage {
+    ReadAddress {
+        metadata: BusMessageMetadata,
+        address: usize,
+        length: usize,
+    },
+    ReadResponse {
+        metadata: BusMessageMetadata,
+        data: Bytes,
+    },
+    WriteAddress {
+        metadata: BusMessageMetadata,
+        address: usize,
+        data: Bytes,
+    },
+    WriteResponse {
+        metadata: BusMessageMetadata,
+    },
+}
+
+impl BusMessage for MemoryBusMessage {
+    fn sender(&self) -> ComponentId {
+        match self {
+            MemoryBusMessage::ReadAddress { metadata, .. } => metadata.sender,
+            MemoryBusMessage::ReadResponse { metadata, .. } => metadata.sender,
+            MemoryBusMessage::WriteAddress { metadata, .. } => metadata.sender,
+            MemoryBusMessage::WriteResponse { metadata, .. } => metadata.sender,
+        }
+    }
+
+    fn recipients(&self) -> Vec<ComponentId> {
+        match self {
+            MemoryBusMessage::ReadAddress { metadata, .. } => metadata.recipients.clone(),
+            MemoryBusMessage::ReadResponse { metadata, .. } => metadata.recipients.clone(),
+            MemoryBusMessage::WriteAddress { metadata, .. } => metadata.recipients.clone(),
+            MemoryBusMessage::WriteResponse { metadata, .. } => metadata.recipients.clone(),
+        }
+    }
+}
+
+pub type MemoryBus = Bus<MemoryBusMessage>;
 
 pub trait RAM: Component {
     fn read(&self, addr: usize, len: usize) -> Bytes;
@@ -17,30 +60,37 @@ pub trait RAM: Component {
 
 #[derive(Debug)]
 pub struct SimpleRAM<const N: usize> {
-    bus: Option<BusConnection>,
+    id: ComponentId,
+    bus: BusConnection<MemoryBusMessage>,
     memory: Mutex<[u8; N]>,
 }
 
 impl<const N: usize> Component for SimpleRAM<N> {
-    fn connect_to_bus(&mut self, bus: BusConnection) {
-        self.bus = Some(bus);
+    fn id(&self) -> ComponentId {
+        self.id
     }
 
     fn start(&mut self) {
-        let bus = self.bus.as_mut().unwrap();
         loop {
-            let msg = bus.recv().unwrap();
-            if let BusMessage::ReadAddress {
+            let msg = self.bus.recv().unwrap();
+            if let MemoryBusMessage::ReadAddress {
+                metadata,
                 address,
                 length,
-                response_channel,
             } = msg
             {
-                tracing::info!("read request: {} bytes at 0x{:X}", length, address);
+                tracing::trace!("read request: {} bytes at 0x{:X}", length, address);
                 let end_addr = address + length;
                 let slice: &[u8] = &self.memory.lock().unwrap()[address..end_addr];
                 let mem = bytes::Bytes::copy_from_slice(slice);
-                let _ = response_channel.send(mem);
+                let response = MemoryBusMessage::ReadResponse {
+                    metadata: BusMessageMetadata {
+                        sender: self.id(),
+                        recipients: vec![metadata.sender],
+                    },
+                    data: mem,
+                };
+                self.bus.send(response);
             }
         }
     }
@@ -74,16 +124,13 @@ impl<const N: usize> RAM for SimpleRAM<N> {
 }
 
 impl<const N: usize> SimpleRAM<N> {
-    pub fn new() -> Self {
+    pub fn new(bus: &mut Bus<MemoryBusMessage>) -> Self {
+        let id = ComponentId::new_v4();
+        let conn = bus.connect(&id);
         SimpleRAM {
-            bus: None,
+            id,
+            bus: conn,
             memory: Mutex::new([0; N]),
         }
-    }
-}
-
-impl<const N: usize> Default for SimpleRAM<N> {
-    fn default() -> Self {
-        Self::new()
     }
 }

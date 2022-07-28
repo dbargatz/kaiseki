@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bus = { version = "2" }
 bytes = { version = "1" }
 crossbeam-channel = { version = "0.5" }
+spin_sleep = { version = "1" }
 tracing = { version = "0.1" }
+uuid = { version = "1", features = ["v4"] }

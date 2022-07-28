@@ -1,6 +1,8 @@
-use crate::bus::BusConnection;
+use uuid::Uuid;
+
+pub type ComponentId = Uuid;
 
 pub trait Component {
-    fn connect_to_bus(&mut self, bus: BusConnection);
+    fn id(&self) -> ComponentId;
     fn start(&mut self);
 }

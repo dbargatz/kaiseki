@@ -1,10 +1,9 @@
+use std::collections::HashMap;
 use std::fmt;
-use std::sync::mpsc;
 
-use bytes::Bytes;
-use crossbeam_channel::{bounded, Sender};
+use crossbeam_channel::{unbounded, Receiver, Select, Sender};
 
-use crate::component::Component;
+use crate::component::{Component, ComponentId};
 
 #[derive(Debug)]
 pub enum BusError {
@@ -13,130 +12,120 @@ pub enum BusError {
 
 pub type Result<T> = std::result::Result<T, BusError>;
 
+pub trait BusMessage: Clone + fmt::Debug {
+    fn sender(&self) -> ComponentId;
+    fn recipients(&self) -> Vec<ComponentId>;
+}
+
 #[derive(Clone, Debug)]
-pub enum BusMessage {
-    OscillatorTick {
-        cycle: u64,
-    },
-    RaiseInterrupt,
-    ReadAddress {
-        address: usize,
-        length: usize,
-        response_channel: Sender<Bytes>,
-    },
-    WriteAddress {
-        address: usize,
-        data: Bytes,
-        response_channel: Sender<Bytes>,
-    },
+pub struct BusMessageMetadata {
+    pub sender: ComponentId,
+    pub recipients: Vec<ComponentId>,
 }
 
 #[derive(Debug)]
-pub struct BusConnection {
-    recv_from_bus: bus::BusReader<BusMessage>,
-    send_to_bus: mpsc::SyncSender<BusMessage>,
+pub struct BusConnection<T: BusMessage> {
+    recv_from_bus: Receiver<T>,
+    send_to_bus: Sender<T>,
 }
 
-impl BusConnection {
-    pub fn new(rx: bus::BusReader<BusMessage>, tx: mpsc::SyncSender<BusMessage>) -> Self {
+impl<T: BusMessage> BusConnection<T> {
+    pub fn new(rx: Receiver<T>, tx: Sender<T>) -> Self {
         BusConnection {
             recv_from_bus: rx,
             send_to_bus: tx,
         }
     }
 
-    pub fn tick(&mut self, cycle: u64) {
-        let message = BusMessage::OscillatorTick { cycle };
-        let _ = self.send(message);
-    }
-
-    pub fn read(&mut self, address: usize, length: usize) -> Result<Bytes> {
-        let (response_tx, response_rx) = bounded(1);
-        let message = BusMessage::ReadAddress {
-            address,
-            length,
-            response_channel: response_tx,
-        };
-        let _ = self.send(message);
-        let result = response_rx.recv().unwrap();
-        Ok(result)
-    }
-
-    pub fn read_u16(&mut self, address: usize) -> Result<u16> {
-        let response = self.read(address, 2).unwrap();
-        let value: u16 = ((response[0] as u16) << 8) as u16 | response[1] as u16;
-        Ok(value)
-    }
-
-    pub fn recv(&mut self) -> Result<BusMessage> {
+    pub fn recv(&mut self) -> Result<T> {
         let msg = self.recv_from_bus.recv().unwrap();
         tracing::trace!("received from bus: {:?}", msg);
         Ok(msg)
     }
 
-    pub fn send(&mut self, message: BusMessage) {
+    pub fn send(&mut self, message: T) {
         tracing::trace!("sending to bus: {:?}", message);
-        let _ = self.send_to_bus.send(message);
-    }
-
-    pub fn write(&mut self, address: usize, data: Bytes) -> Result<Bytes> {
-        let (response_tx, response_rx) = bounded(1);
-        let message = BusMessage::WriteAddress {
-            address,
-            data,
-            response_channel: response_tx,
-        };
-        let _ = self.send(message);
-        let result = response_rx.recv().unwrap();
-        Ok(result)
+        self.send_to_bus.send(message).unwrap();
     }
 }
 
-pub struct Bus {
-    rx: mpsc::Receiver<BusMessage>,
-    tx: mpsc::SyncSender<BusMessage>,
-    bus: bus::Bus<BusMessage>,
+pub struct Bus<T: BusMessage> {
+    id: ComponentId,
+    receivers: HashMap<ComponentId, Receiver<T>>,
+    senders: HashMap<ComponentId, Sender<T>>,
 }
 
-impl Component for Bus {
-    fn connect_to_bus(&mut self, _bus: BusConnection) {
-        tracing::info!("can't connect bus to bus yet");
+impl<T: BusMessage> Component for Bus<T> {
+    fn id(&self) -> ComponentId {
+        self.id
     }
 
     fn start(&mut self) {
         loop {
-            for msg in self.rx.iter() {
-                self.bus.broadcast(msg);
-            }
+            let msg = self.recv().unwrap();
+            self.send(msg, &[]);
         }
     }
 }
 
-impl Default for Bus {
+impl<T: BusMessage> Default for Bus<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Bus {
+impl<T: BusMessage> Bus<T> {
     pub fn new() -> Self {
-        let (tx, rx) = mpsc::sync_channel(100);
-        let bus = bus::Bus::<BusMessage>::new(1);
-        Bus { rx, tx, bus }
+        Bus {
+            id: ComponentId::new_v4(),
+            receivers: HashMap::new(),
+            senders: HashMap::new(),
+        }
     }
 
-    pub fn connect(&mut self, component: &mut impl Component) {
-        let rx = self.bus.add_rx();
-        let conn = BusConnection::new(rx, self.tx.clone());
-        component.connect_to_bus(conn);
+    fn send(&self, message: T, receiver_ids: &[ComponentId]) {
+        let mut receivers = Vec::from(receiver_ids);
+        let sender = message.sender();
+        if receiver_ids.is_empty() {
+            receivers = Vec::new();
+            for id in &self.senders {
+                if *id.0 != sender {
+                    receivers.push(*id.0);
+                }
+            }
+        }
+
+        for tx_id in receivers {
+            let tx = &self.senders[&tx_id];
+            tx.send(message.clone()).unwrap();
+            tracing::trace!("bus sent {:?} to {}", message, tx_id);
+        }
     }
 
-    pub fn start(&self) {
-        tracing::info!("Bus started.");
+    fn recv(&self) -> Result<T> {
+        let receivers: Vec<&Receiver<T>> = self.receivers.values().collect();
+        let mut sel = Select::new();
+        for rx in &receivers {
+            sel.recv(rx);
+        }
+        let oper = sel.select();
+        let index = oper.index();
+        let message = oper.recv(receivers[index]).unwrap();
+        tracing::trace!("bus received {:?}", message);
+        Ok(message)
+    }
+
+    pub fn connect(&mut self, component_id: &ComponentId) -> BusConnection<T> {
+        let (tx_to_bus, rx_from_component) = unbounded();
+        let (tx_to_component, rx_from_bus) = unbounded();
+        self.receivers.insert(*component_id, rx_from_component);
+        self.senders.insert(*component_id, tx_to_component);
+
+        BusConnection::new(rx_from_bus, tx_to_bus)
     }
 }
 
-impl fmt::Debug for Bus {
+impl<T: BusMessage> fmt::Debug for Bus<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Bus").finish()
     }

@@ -7,12 +7,12 @@ mod machine;
 mod memory;
 mod oscillator;
 
-pub use crate::bus::{Bus, BusConnection, BusMessage};
-pub use crate::component::Component;
+pub use crate::bus::{Bus, BusConnection, BusMessage, BusMessageMetadata};
+pub use crate::component::{Component, ComponentId};
 pub use crate::cpu::CPU;
 pub use crate::machine::Machine;
-pub use crate::memory::{SimpleRAM, RAM};
-pub use crate::oscillator::Oscillator;
+pub use crate::memory::{MemoryBus, MemoryBusMessage, SimpleRAM, RAM};
+pub use crate::oscillator::{Oscillator, OscillatorBus, OscillatorBusMessage};
 
 #[derive(Debug)]
 pub struct Error;
