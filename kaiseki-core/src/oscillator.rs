@@ -67,8 +67,9 @@ impl Component for Oscillator {
                 total_elapsed.as_secs_f32(),
                 expected_elapsed.as_secs_f32(),
             );
-            if !diff.is_zero() {
-                let multiplier = total_elapsed.as_secs_f32() / expected_elapsed.as_secs_f32();
+
+            let multiplier = total_elapsed.as_secs_f64() / expected_elapsed.as_secs_f64();
+            if multiplier > 1.01 {
                 tracing::warn!(
                     "oscillator is lagging real-time by {:.2}s ({:.2}x slower)",
                     diff.as_secs_f32(),
