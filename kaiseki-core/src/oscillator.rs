@@ -41,7 +41,7 @@ impl Component for Oscillator {
         let start_time = std::time::Instant::now();
         let mut period = self.period;
         let mut current_cycle: usize = 0;
-        let mut cycle_budget: usize = 5000;
+        let mut cycle_budget: usize = self.frequency_hz as usize;
 
         loop {
             tracing::info!(
