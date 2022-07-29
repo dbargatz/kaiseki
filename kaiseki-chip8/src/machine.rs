@@ -41,7 +41,7 @@ impl Chip8Machine {
 
         let cpu = Chip8CPU::new(&mut clock_bus, &mut memory_bus, 0x200);
         let ram = Chip8RAM::new(&mut memory_bus);
-        let osc = Oscillator::new(&mut clock_bus, 5000);
+        let osc = Oscillator::new(&mut clock_bus, 500);
 
         ram.write(0x200, program);
 
