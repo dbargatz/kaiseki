@@ -32,22 +32,15 @@ impl<T: CpuComponent> Component for Cpu<T> {
     }
 
     async fn start(&mut self) {
-        let (start_tx, mut start_rx) = mpsc::channel(100);
-        let (end_tx, mut end_rx) = mpsc::channel(100);
+        let (start_tx, mut start_rx) = mpsc::unbounded_channel();
+        let (end_tx, mut end_rx) = mpsc::unbounded_channel();
         let cpu = self.inner.clone();
         let handle = std::thread::spawn(move || {
-            // let rt = tokio::runtime::Builder::new_current_thread()
-            //     .enable_all()
-            //     .build()
-            //     .unwrap();
-
             loop {
                 let cycles_executed: usize;
-                //let (start_cycle, end_cycle) = rt.block_on(start_rx.recv()).unwrap();
                 let (start_cycle, end_cycle) = start_rx.blocking_recv().unwrap();
 
                 {
-                    //let mut cpu_guard = rt.block_on(cpu.lock());
                     let mut cpu_guard = cpu.blocking_lock();
                     match cpu_guard.execute_cycles(start_cycle, end_cycle) {
                         Ok(_) => cycles_executed = end_cycle - start_cycle,
@@ -55,8 +48,7 @@ impl<T: CpuComponent> Component for Cpu<T> {
                     }
                 }
 
-                //rt.block_on(end_tx.send(cycles_executed)).unwrap();
-                end_tx.blocking_send(cycles_executed).unwrap();
+                end_tx.send(cycles_executed).unwrap();
             }
         });
         self.exec_thread = Some(handle);
@@ -70,7 +62,7 @@ impl<T: CpuComponent> Component for Cpu<T> {
             {
                 let end_cycle = start_cycle + cycle_budget;
                 tracing::info!("executing cycles {} - {}", start_cycle, end_cycle);
-                start_tx.send((start_cycle, end_cycle)).await.unwrap();
+                start_tx.send((start_cycle, end_cycle)).unwrap();
                 let cycles_executed = end_rx.recv().await.unwrap();
 
                 let cycle_end = OscillatorBusMessage::CycleBatchEnd {

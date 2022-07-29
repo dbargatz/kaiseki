@@ -1,8 +1,8 @@
-use futures::{stream::FuturesUnordered, StreamExt};
 use std::collections::HashMap;
 use std::fmt;
 
 use async_trait::async_trait;
+use futures::{stream::FuturesUnordered, StreamExt};
 use tokio::sync::mpsc;
 
 use crate::component::{Component, ComponentId};
@@ -26,15 +26,15 @@ struct Envelope<T: BusMessage> {
 #[derive(Debug)]
 pub struct BusConnection<T: BusMessage> {
     id: ComponentId,
-    recv_from_bus: mpsc::Receiver<Envelope<T>>,
-    send_to_bus: mpsc::Sender<Envelope<T>>,
+    recv_from_bus: mpsc::UnboundedReceiver<Envelope<T>>,
+    send_to_bus: mpsc::UnboundedSender<Envelope<T>>,
 }
 
 impl<T: BusMessage> BusConnection<T> {
     fn new(
         id: ComponentId,
-        tx: mpsc::Sender<Envelope<T>>,
-        rx: mpsc::Receiver<Envelope<T>>,
+        tx: mpsc::UnboundedSender<Envelope<T>>,
+        rx: mpsc::UnboundedReceiver<Envelope<T>>,
     ) -> Self {
         BusConnection {
             id,
@@ -60,7 +60,7 @@ impl<T: BusMessage> BusConnection<T> {
             recipient_ids: Vec::new(),
             message,
         };
-        if self.send_to_bus.blocking_send(envelope).is_err() {
+        if self.send_to_bus.send(envelope).is_err() {
             return Err(BusError::Disconnected);
         }
         Ok(())
@@ -83,7 +83,7 @@ impl<T: BusMessage> BusConnection<T> {
             recipient_ids: Vec::new(),
             message,
         };
-        if self.send_to_bus.send(envelope).await.is_err() {
+        if self.send_to_bus.send(envelope).is_err() {
             return Err(BusError::Disconnected);
         }
         Ok(())
@@ -92,8 +92,8 @@ impl<T: BusMessage> BusConnection<T> {
 
 pub struct Bus<T: BusMessage> {
     id: ComponentId,
-    receivers: HashMap<ComponentId, mpsc::Receiver<Envelope<T>>>,
-    senders: HashMap<ComponentId, mpsc::Sender<Envelope<T>>>,
+    receivers: HashMap<ComponentId, mpsc::UnboundedReceiver<Envelope<T>>>,
+    senders: HashMap<ComponentId, mpsc::UnboundedSender<Envelope<T>>>,
 }
 
 #[async_trait]
@@ -144,7 +144,7 @@ impl<T: BusMessage> Bus<T> {
                 recipient_ids: vec![tx_id],
                 message: envelope.message.clone(),
             };
-            tx.send(new_envelope.clone()).await.unwrap();
+            tx.send(new_envelope.clone()).unwrap();
             tracing::trace!("{} => {}: {:?}", self.id, tx_id, new_envelope.message);
         }
         Ok(())
@@ -170,8 +170,8 @@ impl<T: BusMessage> Bus<T> {
     }
 
     pub fn connect(&mut self, component_id: &ComponentId) -> BusConnection<T> {
-        let (tx_to_bus, rx_from_component) = mpsc::channel(100);
-        let (tx_to_component, rx_from_bus) = mpsc::channel(100);
+        let (tx_to_bus, rx_from_component) = mpsc::unbounded_channel();
+        let (tx_to_component, rx_from_bus) = mpsc::unbounded_channel();
         self.receivers.insert(*component_id, rx_from_component);
         self.senders.insert(*component_id, tx_to_component);
 

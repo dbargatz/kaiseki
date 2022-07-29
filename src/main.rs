@@ -3,7 +3,7 @@ use std::fs;
 use kaiseki_chip8::machine::Chip8Machine;
 use kaiseki_core::{Component, Result};
 
-#[tokio::main(flavor = "multi_thread", worker_threads = 4)]
+#[tokio::main]
 async fn main() -> Result<()> {
     config_tracing();
 
