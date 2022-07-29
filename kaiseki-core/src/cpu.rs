@@ -11,11 +11,7 @@ pub struct CpuError;
 pub type CpuResult<T> = std::result::Result<T, CpuError>;
 
 pub trait CpuComponent: Component {
-    fn execute_cycles(
-        &mut self,
-        start_cycle: usize,
-        end_cycle: usize,
-    ) -> CpuResult<()>;
+    fn execute_cycles(&mut self, start_cycle: usize, end_cycle: usize) -> CpuResult<()>;
 }
 
 #[derive(Debug)]
@@ -35,21 +31,19 @@ impl<T: CpuComponent> Component for Cpu<T> {
         let (start_tx, mut start_rx) = mpsc::unbounded_channel();
         let (end_tx, mut end_rx) = mpsc::unbounded_channel();
         let cpu = self.inner.clone();
-        let handle = std::thread::spawn(move || {
-            loop {
-                let cycles_executed: usize;
-                let (start_cycle, end_cycle) = start_rx.blocking_recv().unwrap();
+        let handle = std::thread::spawn(move || loop {
+            let cycles_executed: usize;
+            let (start_cycle, end_cycle) = start_rx.blocking_recv().unwrap();
 
-                {
-                    let mut cpu_guard = cpu.blocking_lock();
-                    match cpu_guard.execute_cycles(start_cycle, end_cycle) {
-                        Ok(_) => cycles_executed = end_cycle - start_cycle,
-                        Err(_) => break,
-                    }
+            {
+                let mut cpu_guard = cpu.blocking_lock();
+                match cpu_guard.execute_cycles(start_cycle, end_cycle) {
+                    Ok(_) => cycles_executed = end_cycle - start_cycle,
+                    Err(_) => break,
                 }
-
-                end_tx.send(cycles_executed).unwrap();
             }
+
+            end_tx.send(cycles_executed).unwrap();
         });
         self.exec_thread = Some(handle);
 

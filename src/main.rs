@@ -26,7 +26,9 @@ fn config_tracing() {
     use tracing_subscriber::prelude::*;
 
     let console_layer = console_subscriber::spawn();
-    let fmt_filter = EnvFilter::builder().with_default_directive(LevelFilter::INFO.into()).from_env_lossy();
+    let fmt_filter = EnvFilter::builder()
+        .with_default_directive(LevelFilter::INFO.into())
+        .from_env_lossy();
     let fmt_layer = tracing_subscriber::fmt::layer()
         .compact()
         .with_filter(fmt_filter);
