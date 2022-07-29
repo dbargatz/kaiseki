@@ -33,7 +33,8 @@ impl Component for Oscillator {
 
     fn start(&self) {
         tracing::info!(
-            "starting oscillator with period {}ns",
+            "starting oscillator with frequency {}hz / period {}ns",
+            self.frequency_hz,
             self.period.as_nanos()
         );
 
