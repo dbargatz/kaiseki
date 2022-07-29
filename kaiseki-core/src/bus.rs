@@ -19,7 +19,6 @@ pub trait BusMessage: 'static + Send + Sync + Clone + fmt::Debug {}
 #[derive(Clone, Debug)]
 struct Envelope<T: BusMessage> {
     sender_id: ComponentId,
-    recipient_ids: Vec<ComponentId>,
     pub message: T,
 }
 
@@ -57,7 +56,6 @@ impl<T: BusMessage> BusConnection<T> {
         tracing::trace!("{} sending to bus: {:?}", self.id, message);
         let envelope = Envelope {
             sender_id: self.id,
-            recipient_ids: Vec::new(),
             message,
         };
         if self.send_to_bus.send(envelope).is_err() {
@@ -80,7 +78,6 @@ impl<T: BusMessage> BusConnection<T> {
         tracing::trace!("{} sending to bus: {:?}", self.id, message);
         let envelope = Envelope {
             sender_id: self.id,
-            recipient_ids: Vec::new(),
             message,
         };
         if self.send_to_bus.send(envelope).is_err() {
@@ -127,25 +124,17 @@ impl<T: BusMessage> Bus<T> {
     }
 
     async fn send(&self, envelope: Envelope<T>) -> Result<()> {
-        let mut receivers = envelope.recipient_ids;
-        if receivers.is_empty() {
-            receivers = Vec::new();
-            for id in &self.senders {
-                if *id.0 != envelope.sender_id {
-                    receivers.push(*id.0);
-                }
+        for (tx_id, tx) in &self.senders {
+            if *tx_id == envelope.sender_id {
+                continue;
             }
-        }
 
-        for tx_id in receivers {
-            let tx = &self.senders[&tx_id];
             let new_envelope = Envelope {
                 sender_id: envelope.sender_id,
-                recipient_ids: vec![tx_id],
                 message: envelope.message.clone(),
             };
-            tx.send(new_envelope.clone()).unwrap();
             tracing::trace!("{} => {}: {:?}", self.id, tx_id, new_envelope.message);
+            tx.send(new_envelope).unwrap();
         }
         Ok(())
     }

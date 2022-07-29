@@ -3,7 +3,6 @@ use bytes::{Buf, Bytes};
 
 use kaiseki_core::{
     BusConnection, Component, ComponentId, CpuComponent, CpuResult, MemoryBus, MemoryBusMessage,
-    SimpleRAM,
 };
 
 use super::registers::Chip8Registers;
@@ -14,8 +13,6 @@ pub enum Chip8CpuError {
     LoadError,
 }
 pub type Result<T> = std::result::Result<T, Chip8CpuError>;
-
-pub type Chip8RAM = SimpleRAM<4096>;
 
 #[derive(Debug)]
 pub struct Chip8CPU {

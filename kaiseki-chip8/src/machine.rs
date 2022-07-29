@@ -5,7 +5,7 @@ use kaiseki_core::{
     Component, ComponentId, Cpu, Machine, MemoryBus, Oscillator, OscillatorBus, Result, RAM,
 };
 
-use crate::cpu::{Chip8CPU, Chip8RAM};
+use crate::cpu::Chip8CPU;
 
 #[derive(Debug)]
 pub struct Chip8Machine {
@@ -13,7 +13,7 @@ pub struct Chip8Machine {
     clock_bus: OscillatorBus,
     memory_bus: MemoryBus,
     cpu: Cpu<Chip8CPU>,
-    ram: Chip8RAM,
+    ram: RAM<4096>,
     system_clock: Oscillator,
 }
 
@@ -48,7 +48,7 @@ impl Chip8Machine {
         let mut memory_bus = MemoryBus::new();
 
         let cpu = Cpu::new(&mut clock_bus, Chip8CPU::new(&mut memory_bus, 0x200));
-        let mut ram = Chip8RAM::new(&mut memory_bus);
+        let mut ram = RAM::new(&mut memory_bus);
         let osc = Oscillator::new(&mut clock_bus, 500);
 
         ram.write(0x200, program);
