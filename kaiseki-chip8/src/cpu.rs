@@ -4,6 +4,11 @@ use kaiseki_core::{
 };
 use std::fmt;
 
+#[derive(Clone, Debug)]
+pub struct Chip8CpuError;
+
+pub type Result<T> = std::result::Result<T, Chip8CpuError>;
+
 #[derive(Debug, Default)]
 #[allow(non_snake_case)]
 #[allow(unused)]
@@ -84,29 +89,28 @@ impl Component for Chip8CPU {
     }
 
     fn start(&self) {
-        let mut address = 0x200;
         loop {
             let cycle_msg = self.clock_bus.recv().unwrap();
-            if let OscillatorBusMessage::CycleStart { cycle_number } = cycle_msg {
-                tracing::info!("cycle {} | stack: {:?}", cycle_number, self.stack);
-                let msg = MemoryBusMessage::ReadAddress {
-                    address,
-                    length: 0x2,
+            if let OscillatorBusMessage::CycleBatchStart {
+                start_cycle,
+                cycle_budget,
+            } = cycle_msg
+            {
+                let end_cycle = start_cycle + cycle_budget;
+                tracing::info!("executing cycles {} - {}", start_cycle, end_cycle);
+
+                let mut cycles_executed: usize = 0;
+                for current_cycle in start_cycle..end_cycle {
+                    match self.execute_cycle(current_cycle) {
+                        Ok(_) => cycles_executed += 1,
+                        Err(_) => break,
+                    }
+                }
+
+                let cycle_end = OscillatorBusMessage::CycleBatchEnd {
+                    start_cycle,
+                    cycles_spent: cycles_executed,
                 };
-                self.memory_bus.send(msg);
-                let response = self.memory_bus.recv().unwrap();
-                if let MemoryBusMessage::ReadResponse { data } = response {
-                    tracing::info!("data at 0x{:04X}: 0x{:04X}", address, data);
-                } else {
-                    tracing::warn!("unexpected message on memory bus: {:?}", response);
-                }
-
-                address += 2;
-                if address >= 0x1000 {
-                    address = 0x200;
-                }
-
-                let cycle_end = OscillatorBusMessage::CycleEnd { cycle_number };
                 self.clock_bus.send(cycle_end);
             }
         }
@@ -129,5 +133,28 @@ impl Chip8CPU {
         };
         cpu.regs.PC = initial_pc;
         cpu
+    }
+
+    fn execute_cycle(&self, cycle_number: usize) -> Result<()> {
+        let offset = (2 * cycle_number) % 0x800;
+        let address = 0x200 + offset;
+        let msg = MemoryBusMessage::ReadAddress {
+            address,
+            length: 0x2,
+        };
+        self.memory_bus.send(msg);
+        let response = self.memory_bus.recv().unwrap();
+        if let MemoryBusMessage::ReadResponse { data } = response {
+            tracing::trace!(
+                "cycle {} | simulated read instruction | 0x{:04X}: 0x{:04X} | stack: {:?}",
+                cycle_number,
+                address,
+                data,
+                self.stack
+            );
+        } else {
+            tracing::warn!("unexpected message on memory bus: {:?}", response);
+        }
+        Ok(())
     }
 }
