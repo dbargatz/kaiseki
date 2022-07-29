@@ -39,7 +39,8 @@ impl Component for Oscillator {
         );
 
         let start_time = std::time::Instant::now();
-        let mut period = self.period;
+        let mut current_period = self.period;
+        let mut next_period = self.period;
         let mut current_cycle: usize = 0;
         let mut cycle_budget: usize = self.frequency_hz as usize;
 
@@ -106,15 +107,18 @@ impl Component for Oscillator {
             let total_difference = total_actual_elapsed.saturating_sub(total_expected_elapsed);
             match total_expected_elapsed.cmp(&total_actual_elapsed) {
                 std::cmp::Ordering::Less => {
-                    period = self.period.saturating_sub(total_difference);
+                    next_period = self.period.saturating_sub(total_difference);
                 }
                 std::cmp::Ordering::Greater => {
-                    period = self.period + (total_expected_elapsed - total_actual_elapsed);
+                    next_period = self.period + (total_expected_elapsed - total_actual_elapsed);
                 }
                 std::cmp::Ordering::Equal => {}
             }
 
-            tracing::info!("cycles {} - {}:", current_cycle, end_cycle);
+            let current_period_millis = current_period.as_secs_f64() * 1000.0;
+            let next_period_millis = next_period.as_secs_f64() * 1000.0;
+
+            tracing::info!("ending cycles {} - {}:", current_cycle, end_cycle);
             tracing::info!(
                 "\tcycle:   {:.3}ns avg, {:.3}ns expected ({:.2}x slower)",
                 cycle_actual_average,
@@ -133,6 +137,11 @@ impl Component for Oscillator {
                 total_expected_elapsed.as_secs_f64(),
                 total_multiplier
             );
+            tracing::info!(
+                "\tadjust:  {:.3}ms last, {:.3}ms next",
+                current_period_millis,
+                next_period_millis,
+            );
 
             if total_multiplier > 1.01 && current_cycle % 100_000 == 0 {
                 tracing::warn!(
@@ -143,7 +152,8 @@ impl Component for Oscillator {
             }
 
             current_cycle += cycles_executed;
-            spin_sleep::sleep(period);
+            spin_sleep::sleep(next_period);
+            current_period = next_period;
         }
     }
 }
