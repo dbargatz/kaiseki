@@ -4,8 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+async-trait = { version = "0.1" }
 bytes = { version = "1" }
 crossbeam-channel = { version = "0.5" }
-spin_sleep = { version = "1" }
+futures = { version = "0.3" }
+tokio = { version = "1", features = ["full"] }
 tracing = { version = "0.1" }
 uuid = { version = "1", features = ["v4"] }

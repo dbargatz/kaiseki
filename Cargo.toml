@@ -12,10 +12,12 @@ members = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+console-subscriber = { version = "0.1" }
 eframe = { version = "0.18" }
 egui = { version = "0.18" }
 egui-winit = { version = "0.18" }
 kaiseki-chip8 = { path = "kaiseki-chip8" }
 kaiseki-core = { path = "kaiseki-core" }
+tokio = { version = "1", features = ["full", "tracing"] }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }

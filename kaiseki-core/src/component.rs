@@ -1,8 +1,10 @@
+use async_trait::async_trait;
 use uuid::Uuid;
 
 pub type ComponentId = Uuid;
 
-pub trait Component {
+#[async_trait]
+pub trait Component: 'static + Send + Sync {
     fn id(&self) -> ComponentId;
-    fn start(&self);
+    async fn start(&mut self);
 }

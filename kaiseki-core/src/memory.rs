@@ -1,5 +1,4 @@
-use std::sync::Mutex;
-
+use async_trait::async_trait;
 use bytes::Bytes;
 
 use crate::bus::{Bus, BusConnection, BusMessage};
@@ -24,31 +23,31 @@ pub trait RAM: Component {
     //fn read_u32(&self, addr: usize) -> u32;
     //fn read_u64(&self, addr: usize) -> u64;
 
-    fn write(&self, addr: usize, bytes: &[u8]);
+    fn write(&mut self, addr: usize, bytes: &[u8]);
 }
 
 #[derive(Debug)]
 pub struct SimpleRAM<const N: usize> {
     id: ComponentId,
     bus: BusConnection<MemoryBusMessage>,
-    memory: Mutex<[u8; N]>,
+    memory: [u8; N],
 }
 
+#[async_trait]
 impl<const N: usize> Component for SimpleRAM<N> {
     fn id(&self) -> ComponentId {
         self.id
     }
 
-    fn start(&self) {
+    async fn start(&mut self) {
         loop {
-            let msg = self.bus.recv().unwrap();
-            if let MemoryBusMessage::ReadAddress { address, length } = msg {
+            if let Ok(MemoryBusMessage::ReadAddress { address, length }) = self.bus.recv().await {
                 tracing::trace!("read request: {} bytes at 0x{:X}", length, address);
                 let end_addr = address + length;
-                let slice: &[u8] = &self.memory.lock().unwrap()[address..end_addr];
+                let slice: &[u8] = &self.memory[address..end_addr];
                 let mem = bytes::Bytes::copy_from_slice(slice);
                 let response = MemoryBusMessage::ReadResponse { data: mem };
-                self.bus.send(response);
+                self.bus.send(response).await.unwrap();
             }
         }
     }
@@ -56,8 +55,7 @@ impl<const N: usize> Component for SimpleRAM<N> {
 
 impl<const N: usize> RAM for SimpleRAM<N> {
     fn read(&self, addr: usize, len: usize) -> Bytes {
-        let memory = self.memory.lock().unwrap();
-        Bytes::copy_from_slice(&memory[addr..addr + len])
+        Bytes::copy_from_slice(&self.memory[addr..addr + len])
     }
 
     fn read_u8(&self, addr: usize) -> u8 {
@@ -71,11 +69,10 @@ impl<const N: usize> RAM for SimpleRAM<N> {
         value
     }
 
-    fn write(&self, addr: usize, bytes: &[u8]) {
-        let mut memory = self.memory.lock().unwrap();
+    fn write(&mut self, addr: usize, bytes: &[u8]) {
         let mut address = addr;
         for byte in bytes {
-            memory[address] = *byte;
+            self.memory[address] = *byte;
             address += 1;
         }
     }
@@ -88,7 +85,7 @@ impl<const N: usize> SimpleRAM<N> {
         SimpleRAM {
             id,
             bus: conn,
-            memory: Mutex::new([0; N]),
+            memory: [0; N],
         }
     }
 }
