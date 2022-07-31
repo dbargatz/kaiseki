@@ -28,12 +28,12 @@ async fn main() -> kaiseki_core::Result<()> {
         SupportedMachines::Chip8 => {
             tracing::info!("loading Chip-8 program");
             let program = fs::read("kaiseki-chip8/assets/Chip8 Picture.ch8").unwrap();
-            let mut machine = Chip8Machine::new(&program).unwrap();
+            let mut machine = Chip8Machine::new(&program).await.unwrap();
             machine.start().await;
         }
         SupportedMachines::Gameboy => {
             tracing::info!("loading gameboy program");
-            let mut machine = GameboyMachine::new().unwrap();
+            let mut machine = GameboyMachine::new().await.unwrap();
             machine.start().await;
         }
     }

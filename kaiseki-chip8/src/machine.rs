@@ -43,13 +43,19 @@ impl Component for Chip8Machine {
 impl Machine for Chip8Machine {}
 
 impl Chip8Machine {
-    pub fn new(program: &[u8]) -> Result<Chip8Machine> {
-        let mut clock_bus = OscillatorBus::new();
-        let mut memory_bus = MemoryBus::new();
+    pub async fn new(program: &[u8]) -> Result<Chip8Machine> {
+        let clock_bus = OscillatorBus::new();
+        let memory_bus = MemoryBus::new();
 
-        let cpu = Chip8CPU::new(&mut clock_bus, &mut memory_bus, 0x200);
-        let mut ram = RAM::new(&mut memory_bus);
-        let osc = Oscillator::new(&mut clock_bus, 500);
+        let cpu = Chip8CPU::new(&clock_bus, &memory_bus, 0x200);
+        let mut ram = RAM::new(&memory_bus);
+        let osc = Oscillator::new(&clock_bus, 500);
+
+        clock_bus.connect(&cpu.id()).await.unwrap();
+        clock_bus.connect(&osc.id()).await.unwrap();
+
+        memory_bus.connect(&cpu.id()).await.unwrap();
+        memory_bus.connect(&ram.id()).await.unwrap();
 
         ram.write(0x200, program);
 

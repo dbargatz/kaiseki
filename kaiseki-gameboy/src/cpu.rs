@@ -2,8 +2,7 @@ use async_trait::async_trait;
 use bytes::{Buf, Bytes};
 
 use kaiseki_core::{
-    BusConnection, Component, ComponentId, MemoryBus, MemoryBusMessage, OscillatorBus,
-    OscillatorBusMessage,
+    Component, ComponentId, MemoryBus, MemoryBusMessage, OscillatorBus, OscillatorBusMessage,
 };
 
 #[derive(Clone, Debug)]
@@ -15,8 +14,8 @@ pub type Result<T> = std::result::Result<T, SM83Error>;
 #[derive(Debug)]
 pub struct SM83Cpu {
     id: ComponentId,
-    clock_bus: BusConnection<OscillatorBusMessage>,
-    memory_bus: BusConnection<MemoryBusMessage>,
+    clock_bus: OscillatorBus,
+    memory_bus: MemoryBus,
 }
 
 #[async_trait]
@@ -27,7 +26,7 @@ impl Component for SM83Cpu {
 
     async fn start(&mut self) {
         loop {
-            let cycle_msg = self.clock_bus.recv().await.unwrap();
+            let cycle_msg = self.clock_bus.recv_direct(&self.id).await.unwrap();
             if let OscillatorBusMessage::CycleBatchStart {
                 start_cycle,
                 cycle_budget,
@@ -43,29 +42,30 @@ impl Component for SM83Cpu {
                     start_cycle,
                     cycles_spent: cycle_budget,
                 };
-                self.clock_bus.send(cycle_end).await.unwrap();
+                self.clock_bus
+                    .send_direct(&self.id, cycle_end)
+                    .await
+                    .unwrap();
             }
         }
     }
 }
 
 impl SM83Cpu {
-    pub fn new(clock_bus: &mut OscillatorBus, memory_bus: &mut MemoryBus) -> Self {
+    pub fn new(clock_bus: &OscillatorBus, memory_bus: &MemoryBus) -> Self {
         let id = ComponentId::new_v4();
-        let clock_conn = clock_bus.connect(&id);
-        let mem_conn = memory_bus.connect(&id);
         SM83Cpu {
             id,
-            clock_bus: clock_conn,
-            memory_bus: mem_conn,
+            clock_bus: clock_bus.clone(),
+            memory_bus: memory_bus.clone(),
         }
     }
 
     async fn load(&mut self, address: usize, length: usize) -> Result<Bytes> {
         let msg = MemoryBusMessage::ReadAddress { address, length };
 
-        self.memory_bus.send(msg).await.unwrap();
-        let response = self.memory_bus.recv().await.unwrap();
+        self.memory_bus.send_direct(&self.id, msg).await.unwrap();
+        let response = self.memory_bus.recv_direct(&self.id).await.unwrap();
 
         if let MemoryBusMessage::ReadResponse { data } = response {
             Ok(data)

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use bytes::Bytes;
 
-use crate::bus::{Bus, BusConnection, BusMessage};
+use crate::bus::{Bus, BusMessage};
 use crate::component::{Component, ComponentId};
 
 #[derive(Clone, Debug)]
@@ -19,7 +19,7 @@ pub type MemoryBus = Bus<MemoryBusMessage>;
 #[derive(Debug)]
 pub struct RAM<const N: usize> {
     id: ComponentId,
-    bus: BusConnection<MemoryBusMessage>,
+    bus: MemoryBus,
     memory: [u8; N],
 }
 
@@ -31,23 +31,24 @@ impl<const N: usize> Component for RAM<N> {
 
     async fn start(&mut self) {
         loop {
-            if let Ok(MemoryBusMessage::ReadAddress { address, length }) = self.bus.recv().await {
+            if let Ok(MemoryBusMessage::ReadAddress { address, length }) =
+                self.bus.recv_direct(&self.id).await
+            {
                 tracing::trace!("read request: {} bytes at 0x{:X}", length, address);
                 let mem = Bytes::copy_from_slice(&self.memory[address..address + length]);
                 let response = MemoryBusMessage::ReadResponse { data: mem };
-                self.bus.send(response).await.unwrap();
+                self.bus.send_direct(&self.id, response).await.unwrap();
             }
         }
     }
 }
 
 impl<const N: usize> RAM<N> {
-    pub fn new(bus: &mut Bus<MemoryBusMessage>) -> Self {
+    pub fn new(memory_bus: &MemoryBus) -> Self {
         let id = ComponentId::new_v4();
-        let conn = bus.connect(&id);
         RAM {
             id,
-            bus: conn,
+            bus: memory_bus.clone(),
             memory: [0; N],
         }
     }

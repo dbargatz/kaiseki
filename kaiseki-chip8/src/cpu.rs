@@ -2,8 +2,7 @@ use async_trait::async_trait;
 use bytes::{Buf, Bytes};
 
 use kaiseki_core::{
-    BusConnection, Component, ComponentId, MemoryBus, MemoryBusMessage, OscillatorBus,
-    OscillatorBusMessage,
+    Component, ComponentId, MemoryBus, MemoryBusMessage, OscillatorBus, OscillatorBusMessage,
 };
 
 use super::registers::Chip8Registers;
@@ -18,8 +17,8 @@ pub type Result<T> = std::result::Result<T, Chip8CpuError>;
 #[derive(Debug)]
 pub struct Chip8CPU {
     id: ComponentId,
-    clock_bus: BusConnection<OscillatorBusMessage>,
-    memory_bus: BusConnection<MemoryBusMessage>,
+    clock_bus: OscillatorBus,
+    memory_bus: MemoryBus,
     regs: Chip8Registers,
     stack: Chip8Stack,
 }
@@ -32,7 +31,7 @@ impl Component for Chip8CPU {
 
     async fn start(&mut self) {
         loop {
-            let cycle_msg = self.clock_bus.recv().await.unwrap();
+            let cycle_msg = self.clock_bus.recv_direct(&self.id).await.unwrap();
             if let OscillatorBusMessage::CycleBatchStart {
                 start_cycle,
                 cycle_budget,
@@ -48,21 +47,22 @@ impl Component for Chip8CPU {
                     start_cycle,
                     cycles_spent: cycle_budget,
                 };
-                self.clock_bus.send(cycle_end).await.unwrap();
+                self.clock_bus
+                    .send_direct(&self.id, cycle_end)
+                    .await
+                    .unwrap();
             }
         }
     }
 }
 
 impl Chip8CPU {
-    pub fn new(clock_bus: &mut OscillatorBus, memory_bus: &mut MemoryBus, initial_pc: u16) -> Self {
+    pub fn new(clock_bus: &OscillatorBus, memory_bus: &MemoryBus, initial_pc: u16) -> Self {
         let id = ComponentId::new_v4();
-        let clock_conn = clock_bus.connect(&id);
-        let mem_conn = memory_bus.connect(&id);
         let mut cpu = Chip8CPU {
             id,
-            clock_bus: clock_conn,
-            memory_bus: mem_conn,
+            clock_bus: clock_bus.clone(),
+            memory_bus: memory_bus.clone(),
             regs: Chip8Registers::new(),
             stack: Chip8Stack::new(),
         };
@@ -73,8 +73,8 @@ impl Chip8CPU {
     async fn load(&mut self, address: usize, length: usize) -> Result<Bytes> {
         let msg = MemoryBusMessage::ReadAddress { address, length };
 
-        self.memory_bus.send(msg).await.unwrap();
-        let response = self.memory_bus.recv().await.unwrap();
+        self.memory_bus.send_direct(&self.id, msg).await.unwrap();
+        let response = self.memory_bus.recv_direct(&self.id).await.unwrap();
 
         if let MemoryBusMessage::ReadResponse { data } = response {
             Ok(data)

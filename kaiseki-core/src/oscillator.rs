@@ -2,7 +2,7 @@ use std::fmt;
 
 use async_trait::async_trait;
 
-use crate::bus::{Bus, BusConnection};
+use crate::bus::Bus;
 use crate::component::{Component, ComponentId};
 use crate::BusMessage;
 
@@ -24,7 +24,7 @@ pub type OscillatorBus = Bus<OscillatorBusMessage>;
 
 pub struct Oscillator {
     id: ComponentId,
-    bus: BusConnection<OscillatorBusMessage>,
+    bus: OscillatorBus,
     frequency_hz: f64,
     period: std::time::Duration,
 }
@@ -63,11 +63,11 @@ impl Component for Oscillator {
             let mut end_cycle: usize = 0;
 
             let period_start = tokio::time::Instant::now();
-            self.bus.send(start_msg).await.unwrap();
+            self.bus.send_direct(&self.id, start_msg).await.unwrap();
             if let Ok(OscillatorBusMessage::CycleBatchEnd {
                 start_cycle,
                 cycles_spent,
-            }) = self.bus.recv().await
+            }) = self.bus.recv_direct(&self.id).await
             {
                 assert!(current_cycle == start_cycle);
                 assert!(cycles_spent > 0);
@@ -172,14 +172,13 @@ impl fmt::Debug for Oscillator {
 }
 
 impl Oscillator {
-    pub fn new(bus: &mut Bus<OscillatorBusMessage>, frequency_hz: usize) -> Self {
+    pub fn new(bus: &OscillatorBus, frequency_hz: usize) -> Self {
         let id = ComponentId::new_v4();
-        let conn = bus.connect(&id);
         let freq = frequency_hz as f64;
         let period_duration = std::time::Duration::from_secs_f64(1.0 / freq);
         Oscillator {
             id,
-            bus: conn,
+            bus: bus.clone(),
             frequency_hz: freq,
             period: period_duration,
         }
