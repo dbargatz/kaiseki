@@ -3,20 +3,20 @@ use std::fs;
 use clap::{ArgEnum, Parser};
 
 use kaiseki_chip8::machine::Chip8Machine;
-use kaiseki_core::{Component};
+use kaiseki_core::Component;
 use kaiseki_gameboy::machine::GameboyMachine;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ArgEnum)]
 enum SupportedMachines {
     Chip8,
-    Gameboy
+    Gameboy,
 }
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
-   #[clap(arg_enum, value_parser, short, long)]
-   machine: SupportedMachines,
+    #[clap(arg_enum, value_parser, short, long)]
+    machine: SupportedMachines,
 }
 
 #[tokio::main]

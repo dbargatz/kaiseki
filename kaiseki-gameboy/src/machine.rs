@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, StreamExt};
 
 use kaiseki_core::{
-    Component, ComponentId, Cpu, Machine, MemoryBus, Oscillator, OscillatorBus, Result, RAM,
+    Component, ComponentId, Machine, MemoryBus, Oscillator, OscillatorBus, Result, RAM,
 };
 
 use crate::cpu::SM83Cpu;
@@ -12,7 +12,7 @@ pub struct GameboyMachine {
     id: ComponentId,
     clock_bus: OscillatorBus,
     memory_bus: MemoryBus,
-    cpu: Cpu<SM83Cpu>,
+    cpu: SM83Cpu,
     ram: RAM<8192>,
     system_clock: Oscillator,
 }
@@ -47,7 +47,7 @@ impl GameboyMachine {
         let mut clock_bus = OscillatorBus::new();
         let mut memory_bus = MemoryBus::new();
 
-        let cpu = Cpu::new(&mut clock_bus, SM83Cpu::new(&mut memory_bus));
+        let cpu = SM83Cpu::new(&mut clock_bus, &mut memory_bus);
         let ram = RAM::new(&mut memory_bus);
         let osc = Oscillator::new(&mut clock_bus, 4_000_000);
 
