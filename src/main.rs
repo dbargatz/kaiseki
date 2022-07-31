@@ -1,16 +1,42 @@
 use std::fs;
 
+use clap::{ArgEnum, Parser};
+
 use kaiseki_chip8::machine::Chip8Machine;
-use kaiseki_core::{Component, Result};
+use kaiseki_core::{Component};
+use kaiseki_gameboy::machine::GameboyMachine;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ArgEnum)]
+enum SupportedMachines {
+    Chip8,
+    Gameboy
+}
+
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+   #[clap(arg_enum, value_parser, short, long)]
+   machine: SupportedMachines,
+}
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> kaiseki_core::Result<()> {
     config_tracing();
 
-    tracing::info!("loading Chip-8 program");
-    let program = fs::read("kaiseki-chip8/assets/Chip8 Picture.ch8").unwrap();
-    let mut machine = Chip8Machine::new(&program).unwrap();
-    machine.start().await;
+    let args = Args::parse();
+    match args.machine {
+        SupportedMachines::Chip8 => {
+            tracing::info!("loading Chip-8 program");
+            let program = fs::read("kaiseki-chip8/assets/Chip8 Picture.ch8").unwrap();
+            let mut machine = Chip8Machine::new(&program).unwrap();
+            machine.start().await;
+        }
+        SupportedMachines::Gameboy => {
+            tracing::info!("loading gameboy program");
+            let mut machine = GameboyMachine::new().unwrap();
+            machine.start().await;
+        }
+    }
 
     Ok(())
 }
