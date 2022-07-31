@@ -19,25 +19,58 @@ struct Args {
     machine: SupportedMachines,
 }
 
-#[tokio::main]
-async fn main() -> kaiseki_core::Result<()> {
+struct KaisekiApp {
+    args: Args,
+}
+
+impl eframe::App for KaisekiApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        ctx.set_visuals(egui::Visuals::dark());
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.heading("Kaiseki");
+            ui.label(format!("Selected machine: {:?}", self.args.machine));
+        });
+    }
+}
+
+fn create_tokio_runtime() -> tokio::runtime::Runtime {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+}
+
+fn create_ui(app: KaisekiApp) {
+    let options = eframe::NativeOptions::default();
+    eframe::run_native("Kaiseki", options, Box::new(|_cc| Box::new(app)));
+}
+
+fn main() -> kaiseki_core::Result<()> {
     config_tracing();
 
     let args = Args::parse();
-    match args.machine {
-        SupportedMachines::Chip8 => {
-            tracing::info!("loading Chip-8 program");
-            let program = fs::read("kaiseki-chip8/assets/Chip8 Picture.ch8").unwrap();
-            let mut machine = Chip8Machine::new(&program).await.unwrap();
-            machine.start().await;
-        }
-        SupportedMachines::Gameboy => {
-            tracing::info!("loading gameboy program");
-            let mut machine = GameboyMachine::new().await.unwrap();
-            machine.start().await;
-        }
-    }
-
+    let machine_type = args.machine;
+    let emulator_thread = std::thread::spawn(move || {
+        let runtime = create_tokio_runtime();
+        runtime.block_on(async {
+            match machine_type {
+                SupportedMachines::Chip8 => {
+                    tracing::info!("loading Chip-8 program");
+                    let program = fs::read("kaiseki-chip8/assets/Chip8 Picture.ch8").unwrap();
+                    let mut machine = Chip8Machine::new(&program).await.unwrap();
+                    machine.start().await;
+                }
+                SupportedMachines::Gameboy => {
+                    tracing::info!("loading gameboy program");
+                    let mut machine = GameboyMachine::new().await.unwrap();
+                    machine.start().await;
+                }
+            }
+        });
+    });
+    let app = KaisekiApp { args };
+    create_ui(app);
+    let _ = emulator_thread.join();
     Ok(())
 }
 
