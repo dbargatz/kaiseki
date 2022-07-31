@@ -26,10 +26,14 @@ struct KaisekiApp {
 impl eframe::App for KaisekiApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.set_visuals(egui::Visuals::dark());
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Kaiseki");
-            ui.label(format!("Selected machine: {:?}", self.args.machine));
-        });
+        egui::Window::new("Display")
+            .collapsible(false)
+            .default_size((64.0 * 8.0, 32.0 * 8.0))
+            .resizable(false)
+            .show(ctx, |ui| {
+                ui.label(format!("Selected machine: {:?}", self.args.machine));
+                ui.allocate_space(ui.available_size());
+            });
     }
 }
 
