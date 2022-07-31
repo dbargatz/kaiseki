@@ -35,7 +35,9 @@ impl Component for SM83Cpu {
             {
                 let end_cycle = start_cycle + cycle_budget;
                 tracing::info!("executing cycles {} - {}", start_cycle, end_cycle);
-                self.execute_cycles(start_cycle, end_cycle).await.unwrap();
+                for current_cycle in start_cycle..end_cycle {
+                    self.execute_cycle(current_cycle).await.unwrap();
+                }
 
                 let cycle_end = OscillatorBusMessage::CycleBatchEnd {
                     start_cycle,
@@ -82,20 +84,6 @@ impl SM83Cpu {
             cycle_number,
             address,
             instruction_bytes,
-        );
-        Ok(())
-    }
-
-    pub async fn execute_cycles(&mut self, start_cycle: usize, end_cycle: usize) -> Result<()> {
-        let start = std::time::Instant::now();
-        for current_cycle in start_cycle..end_cycle {
-            self.execute_cycle(current_cycle).await.unwrap();
-        }
-        tracing::info!(
-            "elapsed executing cycles {} - {}: {:.3}s",
-            start_cycle,
-            end_cycle,
-            start.elapsed().as_secs_f64()
         );
         Ok(())
     }
