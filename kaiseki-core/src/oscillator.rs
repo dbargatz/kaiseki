@@ -63,11 +63,11 @@ impl Component for Oscillator {
             let mut end_cycle: usize = 0;
 
             let period_start = tokio::time::Instant::now();
-            self.bus.send_direct(&self.id, start_msg).await.unwrap();
+            self.bus.send(&self.id, start_msg).await.unwrap();
             if let Ok(OscillatorBusMessage::CycleBatchEnd {
                 start_cycle,
                 cycles_spent,
-            }) = self.bus.recv_direct(&self.id).await
+            }) = self.bus.recv(&self.id).await
             {
                 assert!(current_cycle == start_cycle);
                 assert!(cycles_spent > 0);

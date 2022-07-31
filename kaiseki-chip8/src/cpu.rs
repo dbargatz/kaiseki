@@ -31,7 +31,7 @@ impl Component for Chip8CPU {
 
     async fn start(&mut self) {
         loop {
-            let cycle_msg = self.clock_bus.recv_direct(&self.id).await.unwrap();
+            let cycle_msg = self.clock_bus.recv(&self.id).await.unwrap();
             if let OscillatorBusMessage::CycleBatchStart {
                 start_cycle,
                 cycle_budget,
@@ -47,10 +47,7 @@ impl Component for Chip8CPU {
                     start_cycle,
                     cycles_spent: cycle_budget,
                 };
-                self.clock_bus
-                    .send_direct(&self.id, cycle_end)
-                    .await
-                    .unwrap();
+                self.clock_bus.send(&self.id, cycle_end).await.unwrap();
             }
         }
     }
@@ -73,8 +70,8 @@ impl Chip8CPU {
     async fn load(&mut self, address: usize, length: usize) -> Result<Bytes> {
         let msg = MemoryBusMessage::ReadAddress { address, length };
 
-        self.memory_bus.send_direct(&self.id, msg).await.unwrap();
-        let response = self.memory_bus.recv_direct(&self.id).await.unwrap();
+        self.memory_bus.send(&self.id, msg).await.unwrap();
+        let response = self.memory_bus.recv(&self.id).await.unwrap();
 
         if let MemoryBusMessage::ReadResponse { data } = response {
             Ok(data)

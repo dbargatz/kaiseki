@@ -32,12 +32,12 @@ impl<const N: usize> Component for RAM<N> {
     async fn start(&mut self) {
         loop {
             if let Ok(MemoryBusMessage::ReadAddress { address, length }) =
-                self.bus.recv_direct(&self.id).await
+                self.bus.recv(&self.id).await
             {
                 tracing::trace!("read request: {} bytes at 0x{:X}", length, address);
                 let mem = Bytes::copy_from_slice(&self.memory[address..address + length]);
                 let response = MemoryBusMessage::ReadResponse { data: mem };
-                self.bus.send_direct(&self.id, response).await.unwrap();
+                self.bus.send(&self.id, response).await.unwrap();
             }
         }
     }
