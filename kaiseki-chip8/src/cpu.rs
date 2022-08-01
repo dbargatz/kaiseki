@@ -1,9 +1,7 @@
 use async_trait::async_trait;
-use bytes::{Buf, Bytes};
+use bytes::Buf;
 
-use kaiseki_core::{
-    Component, ComponentId, MemoryBus, MemoryBusMessage, OscillatorBus, OscillatorBusMessage,
-};
+use kaiseki_core::{Component, ComponentId, MemoryBus, OscillatorBus};
 
 use super::registers::Chip8Registers;
 use super::stack::Chip8Stack;
@@ -31,24 +29,17 @@ impl Component for Chip8CPU {
 
     async fn start(&mut self) {
         loop {
-            let cycle_msg = self.clock_bus.recv(&self.id).await.unwrap();
-            if let OscillatorBusMessage::CycleBatchStart {
-                start_cycle,
-                cycle_budget,
-            } = cycle_msg
-            {
-                let end_cycle = start_cycle + cycle_budget;
-                tracing::info!("executing cycles {} - {}", start_cycle, end_cycle);
-                for current_cycle in start_cycle..end_cycle {
-                    self.execute_cycle(current_cycle).await.unwrap();
-                }
-
-                let cycle_end = OscillatorBusMessage::CycleBatchEnd {
-                    start_cycle,
-                    cycles_spent: cycle_budget,
-                };
-                self.clock_bus.send(&self.id, cycle_end).await.unwrap();
+            let (start_cycle, cycle_budget) = self.clock_bus.wait(&self.id).await.unwrap();
+            let end_cycle = start_cycle + cycle_budget;
+            tracing::info!("executing cycles {} - {}", start_cycle, end_cycle);
+            for current_cycle in start_cycle..end_cycle {
+                self.execute_cycle(current_cycle).await.unwrap();
             }
+
+            self.clock_bus
+                .complete(&self.id, start_cycle, cycle_budget)
+                .await
+                .unwrap();
         }
     }
 }
@@ -67,24 +58,15 @@ impl Chip8CPU {
         cpu
     }
 
-    async fn load(&mut self, address: usize, length: usize) -> Result<Bytes> {
-        let msg = MemoryBusMessage::ReadAddress { address, length };
-
-        self.memory_bus.send(&self.id, msg).await.unwrap();
-        let response = self.memory_bus.recv(&self.id).await.unwrap();
-
-        if let MemoryBusMessage::ReadResponse { data } = response {
-            Ok(data)
-        } else {
-            tracing::warn!("unexpected message on memory bus: {:?}", response);
-            Err(Chip8CpuError::LoadError)
-        }
-    }
-
     async fn execute_cycle(&mut self, cycle_number: usize) -> Result<()> {
         let offset = (2 * cycle_number) % 0x800;
         let address = 0x200 + offset;
-        let instruction_bytes = self.load(address, 2).await.unwrap().get_u16();
+        let instruction_bytes = self
+            .memory_bus
+            .read(&self.id, address, 2)
+            .await
+            .unwrap()
+            .get_u16();
         tracing::debug!(
             "cycle {} | load 0x{:04X} => 0x{:04X} | stack: {:?}",
             cycle_number,

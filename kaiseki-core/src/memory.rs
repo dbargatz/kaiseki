@@ -14,7 +14,48 @@ pub enum MemoryBusMessage {
 
 impl BusMessage for MemoryBusMessage {}
 
+#[derive(Clone, Debug)]
+pub enum MemoryBusError {
+    UnexpectedResponse,
+}
+
+pub type Result<T> = std::result::Result<T, MemoryBusError>;
+
 pub type MemoryBus = Bus<MemoryBusMessage>;
+
+impl MemoryBus {
+    pub async fn read(&self, id: &ComponentId, address: usize, length: usize) -> Result<Bytes> {
+        let request = MemoryBusMessage::ReadAddress { address, length };
+        self.send(id, request).await.unwrap();
+        let response = self.recv(id).await.unwrap();
+
+        if let MemoryBusMessage::ReadResponse { data } = response {
+            Ok(data)
+        } else {
+            tracing::warn!(
+                "unexpected response to ReadAddress on memory bus: {:?}",
+                response
+            );
+            Err(MemoryBusError::UnexpectedResponse)
+        }
+    }
+
+    pub async fn write(&self, id: &ComponentId, address: usize, data: Bytes) -> Result<()> {
+        let request = MemoryBusMessage::WriteAddress { address, data };
+        self.send(id, request).await.unwrap();
+        let response = self.recv(id).await.unwrap();
+
+        if let MemoryBusMessage::WriteResponse = response {
+            Ok(())
+        } else {
+            tracing::warn!(
+                "unexpected response to WriteAddress on memory bus: {:?}",
+                response
+            );
+            Err(MemoryBusError::UnexpectedResponse)
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct RAM<const N: usize> {
@@ -56,12 +97,6 @@ impl<const N: usize> RAM<N> {
     pub fn read(&self, addr: usize, len: usize) -> Bytes {
         Bytes::copy_from_slice(&self.memory[addr..addr + len])
     }
-
-    // fn read_u16(&self, addr: usize) -> u16 {
-    //     let slice = self.read(addr, 2);
-    //     let value: u16 = (slice[0] as u16) << 8 | slice[1] as u16;
-    //     value
-    // }
 
     pub fn write(&mut self, addr: usize, bytes: &[u8]) {
         let mut address = addr;

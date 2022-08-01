@@ -20,7 +20,43 @@ pub enum OscillatorBusMessage {
 
 impl BusMessage for OscillatorBusMessage {}
 
+#[derive(Clone, Debug)]
+pub enum OscillatorBusError {
+    UnexpectedResponse,
+}
+
+pub type Result<T> = std::result::Result<T, OscillatorBusError>;
+
 pub type OscillatorBus = Bus<OscillatorBusMessage>;
+
+impl OscillatorBus {
+    pub async fn wait(&self, id: &ComponentId) -> Result<(usize, usize)> {
+        let cycle_batch_start = self.recv(id).await.unwrap();
+        if let OscillatorBusMessage::CycleBatchStart {
+            start_cycle,
+            cycle_budget,
+        } = cycle_batch_start
+        {
+            Ok((start_cycle, cycle_budget))
+        } else {
+            Err(OscillatorBusError::UnexpectedResponse)
+        }
+    }
+
+    pub async fn complete(
+        &self,
+        id: &ComponentId,
+        start_cycle: usize,
+        cycles_spent: usize,
+    ) -> Result<()> {
+        let cycle_batch_end = OscillatorBusMessage::CycleBatchEnd {
+            start_cycle,
+            cycles_spent,
+        };
+        self.send(id, cycle_batch_end).await.unwrap();
+        Ok(())
+    }
+}
 
 pub struct Oscillator {
     id: ComponentId,
