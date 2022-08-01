@@ -1,7 +1,8 @@
+use anyhow::Result;
 use async_trait::async_trait;
 use bytes::Bytes;
 
-use crate::bus::{Bus, BusMessage};
+use crate::bus::{Bus, BusError, BusMessage};
 use crate::component::{Component, ComponentId};
 
 #[derive(Clone, Debug)]
@@ -14,17 +15,15 @@ pub enum MemoryBusMessage {
 
 impl BusMessage for MemoryBusMessage {}
 
-#[derive(Clone, Debug)]
-pub enum MemoryBusError {
-    UnexpectedResponse,
-}
-
-pub type Result<T> = std::result::Result<T, MemoryBusError>;
-
 pub type MemoryBus = Bus<MemoryBusMessage>;
 
 impl MemoryBus {
-    pub async fn read(&self, id: &ComponentId, address: usize, length: usize) -> Result<Bytes> {
+    pub async fn read(
+        &self,
+        id: &ComponentId,
+        address: usize,
+        length: usize,
+    ) -> Result<Bytes, BusError> {
         let request = MemoryBusMessage::ReadAddress { address, length };
         self.send(id, request).await.unwrap();
         let response = self.recv(id).await.unwrap();
@@ -36,11 +35,17 @@ impl MemoryBus {
                 "unexpected response to ReadAddress on memory bus: {:?}",
                 response
             );
-            Err(MemoryBusError::UnexpectedResponse)
+            let msg_str = format!("{:?}", response);
+            Err(BusError::UnexpectedMessage(msg_str))
         }
     }
 
-    pub async fn write(&self, id: &ComponentId, address: usize, data: Bytes) -> Result<()> {
+    pub async fn write(
+        &self,
+        id: &ComponentId,
+        address: usize,
+        data: Bytes,
+    ) -> Result<(), BusError> {
         let request = MemoryBusMessage::WriteAddress { address, data };
         self.send(id, request).await.unwrap();
         let response = self.recv(id).await.unwrap();
@@ -52,7 +57,8 @@ impl MemoryBus {
                 "unexpected response to WriteAddress on memory bus: {:?}",
                 response
             );
-            Err(MemoryBusError::UnexpectedResponse)
+            let msg_str = format!("{:?}", response);
+            Err(BusError::UnexpectedMessage(msg_str))
         }
     }
 }

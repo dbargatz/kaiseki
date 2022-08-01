@@ -1,5 +1,6 @@
 use std::fs;
 
+use anyhow::Result;
 use clap::{ArgEnum, Parser};
 
 use kaiseki_chip8::machine::Chip8Machine;
@@ -49,7 +50,7 @@ fn create_ui(app: KaisekiApp) {
     eframe::run_native("Kaiseki", options, Box::new(|_cc| Box::new(app)));
 }
 
-fn main() -> kaiseki_core::Result<()> {
+fn main() -> Result<()> {
     config_tracing();
 
     let args = Args::parse();

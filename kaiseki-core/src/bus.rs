@@ -2,17 +2,20 @@ use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 
+use anyhow::Result;
 use async_trait::async_trait;
+use thiserror::Error;
 use tokio::sync::{mpsc, Mutex};
 
 use crate::component::{Component, ComponentId};
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum BusError {
+    #[error("disconnected from bus")]
     Disconnected,
+    #[error("received unexpected message {0} on bus")]
+    UnexpectedMessage(String),
 }
-
-pub type Result<T> = std::result::Result<T, BusError>;
 
 pub trait BusMessage: 'static + Send + Sync + Clone + fmt::Debug {}
 
@@ -47,7 +50,7 @@ impl<T: BusMessage> Bus<T> {
         }
     }
 
-    pub async fn send(&self, id: &ComponentId, message: T) -> Result<()> {
+    pub async fn send(&self, id: &ComponentId, message: T) -> Result<(), BusError> {
         let senders = self.senders.lock().await;
         for (tx_id, tx) in senders.iter() {
             if *tx_id == *id {
@@ -60,7 +63,7 @@ impl<T: BusMessage> Bus<T> {
         Ok(())
     }
 
-    pub async fn recv(&self, id: &ComponentId) -> Result<T> {
+    pub async fn recv(&self, id: &ComponentId) -> Result<T, BusError> {
         let mut receivers = self.receivers.lock().await;
         let rx = receivers.get_mut(id).unwrap();
         if let Some(message) = rx.recv().await {
@@ -70,7 +73,7 @@ impl<T: BusMessage> Bus<T> {
         Err(BusError::Disconnected)
     }
 
-    pub async fn connect(&self, component_id: &ComponentId) -> Result<()> {
+    pub async fn connect(&self, component_id: &ComponentId) -> Result<(), BusError> {
         let (tx_to_component, rx_from_bus) = mpsc::unbounded_channel();
         self.receivers
             .lock()

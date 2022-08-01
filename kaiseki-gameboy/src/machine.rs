@@ -1,9 +1,8 @@
+use anyhow::Result;
 use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, StreamExt};
 
-use kaiseki_core::{
-    Component, ComponentId, Machine, MemoryBus, Oscillator, OscillatorBus, Result, RAM,
-};
+use kaiseki_core::{Component, ComponentId, Machine, MemoryBus, Oscillator, OscillatorBus, RAM};
 
 use crate::cpu::SM83Cpu;
 

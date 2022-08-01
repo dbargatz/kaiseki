@@ -1,3 +1,4 @@
+use anyhow::Result;
 use async_trait::async_trait;
 use bytes::Buf;
 
@@ -10,7 +11,6 @@ use super::stack::Chip8Stack;
 pub enum Chip8CpuError {
     LoadError,
 }
-pub type Result<T> = std::result::Result<T, Chip8CpuError>;
 
 #[derive(Debug)]
 pub struct Chip8CPU {

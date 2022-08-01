@@ -1,13 +1,8 @@
+use anyhow::Result;
 use async_trait::async_trait;
 use bytes::Buf;
 
 use kaiseki_core::{Component, ComponentId, MemoryBus, OscillatorBus};
-
-#[derive(Clone, Debug)]
-pub enum SM83Error {
-    LoadError,
-}
-pub type Result<T> = std::result::Result<T, SM83Error>;
 
 #[derive(Debug)]
 pub struct SM83Cpu {

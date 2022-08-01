@@ -1,10 +1,10 @@
 use std::fmt;
 
+use anyhow::Result;
 use async_trait::async_trait;
 
-use crate::bus::Bus;
+use crate::bus::{Bus, BusError, BusMessage};
 use crate::component::{Component, ComponentId};
-use crate::BusMessage;
 
 #[derive(Clone, Debug)]
 pub enum OscillatorBusMessage {
@@ -20,17 +20,10 @@ pub enum OscillatorBusMessage {
 
 impl BusMessage for OscillatorBusMessage {}
 
-#[derive(Clone, Debug)]
-pub enum OscillatorBusError {
-    UnexpectedResponse,
-}
-
-pub type Result<T> = std::result::Result<T, OscillatorBusError>;
-
 pub type OscillatorBus = Bus<OscillatorBusMessage>;
 
 impl OscillatorBus {
-    pub async fn wait(&self, id: &ComponentId) -> Result<(usize, usize)> {
+    pub async fn wait(&self, id: &ComponentId) -> Result<(usize, usize), BusError> {
         let cycle_batch_start = self.recv(id).await.unwrap();
         if let OscillatorBusMessage::CycleBatchStart {
             start_cycle,
@@ -39,7 +32,8 @@ impl OscillatorBus {
         {
             Ok((start_cycle, cycle_budget))
         } else {
-            Err(OscillatorBusError::UnexpectedResponse)
+            let msg_str = format!("{:?}", cycle_batch_start);
+            Err(BusError::UnexpectedMessage(msg_str))
         }
     }
 
