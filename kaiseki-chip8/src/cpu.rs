@@ -270,9 +270,9 @@ impl Chip8CPU {
                 _ => panic!("invalid 0x9XY0 opcode"),
             },
             0xA000..=0xAFFF => {
-                self.regs.VI = self.fetch(embedded_address).await?;
+                self.regs.VI = embedded_address;
                 self.regs.PC += 2;
-                desc = format!("store memory at 0x{:04X} in VI", embedded_address);
+                desc = format!("store 0x{:04X} in VI", embedded_address);
             }
             0xB000..=0xBFFF => {
                 self.regs.PC = embedded_address + self.regs.V0 as u16;
