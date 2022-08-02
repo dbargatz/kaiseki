@@ -2,7 +2,10 @@ use anyhow::Result;
 use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, StreamExt};
 
-use kaiseki_core::{Component, ComponentId, Machine, MemoryBus, Oscillator, OscillatorBus, RAM};
+use kaiseki_core::{
+    Component, ComponentId, DisplayBus, Machine, MemoryBus, MonochromeDisplay, Oscillator,
+    OscillatorBus, RAM,
+};
 
 use crate::cpu::Chip8CPU;
 
@@ -10,8 +13,10 @@ use crate::cpu::Chip8CPU;
 pub struct Chip8Machine {
     id: ComponentId,
     clock_bus: OscillatorBus,
+    display_bus: DisplayBus,
     memory_bus: MemoryBus,
     cpu: Chip8CPU,
+    display: MonochromeDisplay<2048, 64, 32>,
     ram: RAM<4096>,
     system_clock: Oscillator,
 }
@@ -27,9 +32,11 @@ impl Component for Chip8Machine {
 
         let mut futures = FuturesUnordered::new();
         futures.push(self.clock_bus.start());
+        futures.push(self.display_bus.start());
         futures.push(self.memory_bus.start());
 
         futures.push(self.cpu.start());
+        futures.push(self.display.start());
         futures.push(self.ram.start());
         futures.push(self.system_clock.start());
 
@@ -44,16 +51,22 @@ impl Machine for Chip8Machine {}
 impl Chip8Machine {
     pub async fn new(program: &[u8]) -> Result<Chip8Machine> {
         let clock_bus = OscillatorBus::new();
+        let display_bus = DisplayBus::new();
         let memory_bus = MemoryBus::new();
 
-        let cpu = Chip8CPU::new(&clock_bus, &memory_bus, 0x200);
+        let cpu = Chip8CPU::new(&clock_bus, &display_bus, &memory_bus, 0x200);
+        let display = MonochromeDisplay::new(&display_bus, &memory_bus);
         let mut ram = RAM::new(&memory_bus);
         let osc = Oscillator::new(&clock_bus, 500);
 
         clock_bus.connect(&cpu.id()).await.unwrap();
         clock_bus.connect(&osc.id()).await.unwrap();
 
+        display_bus.connect(&cpu.id()).await.unwrap();
+        display_bus.connect(&display.id()).await.unwrap();
+
         memory_bus.connect(&cpu.id()).await.unwrap();
+        memory_bus.connect(&display.id()).await.unwrap();
         memory_bus.connect(&ram.id()).await.unwrap();
 
         ram.write(0x200, program);
@@ -61,8 +74,10 @@ impl Chip8Machine {
         let machine = Chip8Machine {
             id: ComponentId::new_v4(),
             clock_bus,
+            display_bus,
             memory_bus,
             cpu,
+            display,
             ram,
             system_clock: osc,
         };

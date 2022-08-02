@@ -4,7 +4,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use bytes::Buf;
 
-use kaiseki_core::{Component, ComponentId, MemoryBus, OscillatorBus};
+use kaiseki_core::{Component, ComponentId, DisplayBus, MemoryBus, OscillatorBus};
 
 use super::registers::Chip8Registers;
 use super::stack::Chip8Stack;
@@ -18,6 +18,7 @@ pub enum Chip8CpuError {
 pub struct Chip8CPU {
     id: ComponentId,
     clock_bus: OscillatorBus,
+    display_bus: DisplayBus,
     memory_bus: MemoryBus,
     regs: Chip8Registers,
     stack: Chip8Stack,
@@ -47,11 +48,17 @@ impl Component for Chip8CPU {
 }
 
 impl Chip8CPU {
-    pub fn new(clock_bus: &OscillatorBus, memory_bus: &MemoryBus, initial_pc: u16) -> Self {
+    pub fn new(
+        clock_bus: &OscillatorBus,
+        display_bus: &DisplayBus,
+        memory_bus: &MemoryBus,
+        initial_pc: u16,
+    ) -> Self {
         let id = ComponentId::new_v4();
         let mut cpu = Chip8CPU {
             id,
             clock_bus: clock_bus.clone(),
+            display_bus: display_bus.clone(),
             memory_bus: memory_bus.clone(),
             regs: Chip8Registers::new(),
             stack: Chip8Stack::new(),
@@ -77,6 +84,7 @@ impl Chip8CPU {
             0x0000..=0x0FFF => match opcode {
                 0x00E0 => {
                     self.regs.PC += 2;
+                    self.display_bus.clear(&self.id).await?;
                     desc = String::from("clear screen");
                 }
                 0x00EE => {
