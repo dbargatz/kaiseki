@@ -272,8 +272,8 @@ impl Chip8CPU {
             }
             0xC000..=0xCFFF => {
                 let vx = self.regs.get_register_mut(vx_id);
-                // TODO: make the 0x42 random
-                *vx = 0x42 & embedded_byte;
+                let random = rand::random::<u8>();
+                *vx = random & embedded_byte;
                 self.regs.PC += 2;
                 desc = format!(
                     "set V{} to a random number with mask 0x{:02X}",

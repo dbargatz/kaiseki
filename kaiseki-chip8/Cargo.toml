@@ -9,5 +9,6 @@ async-trait = { version = "0.1" }
 bytes = { version = "1" }
 futures = { version = "0.3" }
 kaiseki-core = { path = "../kaiseki-core" }
+rand = { version = "0.8" }
 thiserror = { version = "1" }
 tracing = { version = "0.1" }
