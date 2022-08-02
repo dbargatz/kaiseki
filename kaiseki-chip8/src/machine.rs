@@ -24,7 +24,7 @@ pub struct Chip8Machine {
 #[async_trait]
 impl Component for Chip8Machine {
     fn id(&self) -> ComponentId {
-        self.id
+        self.id.clone()
     }
 
     async fn start(&mut self) {
@@ -72,7 +72,7 @@ impl Chip8Machine {
         ram.write(0x200, program);
 
         let machine = Chip8Machine {
-            id: ComponentId::new_v4(),
+            id: ComponentId::new("Chip-8 Machine"),
             clock_bus,
             display_bus,
             memory_bus,

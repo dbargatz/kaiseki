@@ -19,7 +19,7 @@ pub struct GameboyMachine {
 #[async_trait]
 impl Component for GameboyMachine {
     fn id(&self) -> ComponentId {
-        self.id
+        self.id.clone()
     }
 
     async fn start(&mut self) {
@@ -57,7 +57,7 @@ impl GameboyMachine {
         memory_bus.connect(&ram.id()).await.unwrap();
 
         let machine = GameboyMachine {
-            id: ComponentId::new_v4(),
+            id: ComponentId::new("Gameboy Machine"),
             clock_bus,
             memory_bus,
             cpu,

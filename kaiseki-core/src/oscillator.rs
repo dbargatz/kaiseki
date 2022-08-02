@@ -62,7 +62,7 @@ pub struct Oscillator {
 #[async_trait]
 impl Component for Oscillator {
     fn id(&self) -> ComponentId {
-        self.id
+        self.id.clone()
     }
 
     async fn start(&mut self) {
@@ -203,7 +203,7 @@ impl fmt::Debug for Oscillator {
 
 impl Oscillator {
     pub fn new(bus: &OscillatorBus, frequency_hz: usize) -> Self {
-        let id = ComponentId::new_v4();
+        let id = ComponentId::new("Oscillator");
         let freq = frequency_hz as f64;
         let period_duration = std::time::Duration::from_secs_f64(1.0 / freq);
         Oscillator {

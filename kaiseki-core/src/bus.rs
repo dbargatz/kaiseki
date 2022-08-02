@@ -29,7 +29,7 @@ pub struct Bus<T: BusMessage> {
 #[async_trait]
 impl<T: BusMessage> Component for Bus<T> {
     fn id(&self) -> ComponentId {
-        self.id
+        self.id.clone()
     }
 
     async fn start(&mut self) {}
@@ -44,7 +44,7 @@ impl<T: BusMessage> Default for Bus<T> {
 impl<T: BusMessage> Bus<T> {
     pub fn new() -> Self {
         Bus {
-            id: ComponentId::new_v4(),
+            id: ComponentId::new("Bus"),
             receivers: Arc::new(Mutex::new(HashMap::new())),
             senders: Arc::new(Mutex::new(HashMap::new())),
         }
@@ -67,7 +67,6 @@ impl<T: BusMessage> Bus<T> {
         let mut receivers = self.receivers.lock().await;
         let rx = receivers.get_mut(id).unwrap();
         if let Some(message) = rx.recv().await {
-            tracing::trace!("recv => {}: {:?}", id, message);
             return Ok(message);
         }
         Err(BusError::Disconnected)
@@ -78,11 +77,11 @@ impl<T: BusMessage> Bus<T> {
         self.receivers
             .lock()
             .await
-            .insert(*component_id, rx_from_bus);
+            .insert(component_id.clone(), rx_from_bus);
         self.senders
             .lock()
             .await
-            .insert(*component_id, tx_to_component);
+            .insert(component_id.clone(), tx_to_component);
         Ok(())
     }
 }

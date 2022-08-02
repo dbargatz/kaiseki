@@ -14,7 +14,7 @@ pub struct SM83Cpu {
 #[async_trait]
 impl Component for SM83Cpu {
     fn id(&self) -> ComponentId {
-        self.id
+        self.id.clone()
     }
 
     async fn start(&mut self) {
@@ -36,7 +36,7 @@ impl Component for SM83Cpu {
 
 impl SM83Cpu {
     pub fn new(clock_bus: &OscillatorBus, memory_bus: &MemoryBus) -> Self {
-        let id = ComponentId::new_v4();
+        let id = ComponentId::new("SM83 CPU");
         SM83Cpu {
             id,
             clock_bus: clock_bus.clone(),

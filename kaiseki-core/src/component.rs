@@ -1,7 +1,37 @@
+use std::fmt;
+
 use async_trait::async_trait;
 use uuid::Uuid;
 
-pub type ComponentId = Uuid;
+#[derive(Debug, Eq, Hash, PartialEq)]
+pub struct ComponentId {
+    name: String,
+    uuid: Uuid,
+}
+
+impl Clone for ComponentId {
+    fn clone(&self) -> Self {
+        Self {
+            name: String::from(self.name.as_str()),
+            uuid: self.uuid,
+        }
+    }
+}
+
+impl fmt::Display for ComponentId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.name.as_str())
+    }
+}
+
+impl ComponentId {
+    pub fn new(name: &str) -> Self {
+        ComponentId {
+            name: String::from(name),
+            uuid: Uuid::new_v4(),
+        }
+    }
+}
 
 #[async_trait]
 pub trait Component: 'static + Send + Sync {

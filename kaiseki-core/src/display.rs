@@ -83,7 +83,7 @@ pub struct MonochromeDisplay<const N: usize, const W: usize, const H: usize> {
 #[async_trait]
 impl<const N: usize, const W: usize, const H: usize> Component for MonochromeDisplay<N, W, H> {
     fn id(&self) -> ComponentId {
-        self.id
+        self.id.clone()
     }
 
     async fn start(&mut self) {
@@ -107,7 +107,7 @@ impl<const N: usize, const W: usize, const H: usize> Component for MonochromeDis
 impl<const N: usize, const W: usize, const H: usize> MonochromeDisplay<N, W, H> {
     pub fn new(display_bus: &DisplayBus, memory_bus: &MemoryBus) -> Self {
         MonochromeDisplay {
-            id: ComponentId::new_v4(),
+            id: ComponentId::new("Monochrome Display"),
             display_bus: display_bus.clone(),
             memory_bus: memory_bus.clone(),
             pixels: [0; N],

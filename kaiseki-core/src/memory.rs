@@ -73,7 +73,7 @@ pub struct RAM<const N: usize> {
 #[async_trait]
 impl<const N: usize> Component for RAM<N> {
     fn id(&self) -> ComponentId {
-        self.id
+        self.id.clone()
     }
 
     async fn start(&mut self) {
@@ -92,7 +92,7 @@ impl<const N: usize> Component for RAM<N> {
 
 impl<const N: usize> RAM<N> {
     pub fn new(memory_bus: &MemoryBus) -> Self {
-        let id = ComponentId::new_v4();
+        let id = ComponentId::new("RAM");
         RAM {
             id,
             bus: memory_bus.clone(),
