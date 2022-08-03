@@ -27,8 +27,8 @@ pub struct Chip8CPU {
 }
 
 impl Component for Chip8CPU {
-    fn id(&self) -> ComponentId {
-        self.id.clone()
+    fn id(&self) -> &ComponentId {
+        &self.id
     }
 }
 

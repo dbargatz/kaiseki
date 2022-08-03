@@ -24,8 +24,8 @@ pub struct MessageBus<M: BusMessage> {
 }
 
 impl<M: BusMessage> Component for MessageBus<M> {
-    fn id(&self) -> ComponentId {
-        self.id.clone()
+    fn id(&self) -> &ComponentId {
+        &self.id
     }
 }
 
@@ -42,8 +42,8 @@ impl<M: BusMessage> MessageBus<M> {
     }
 
     pub fn connect(&self, sender: impl Component, receiver: impl Component) -> Result<()> {
-        let sender_id = sender.id();
-        let receiver_id = receiver.id();
+        let sender_id = sender.id().clone();
+        let receiver_id = receiver.id().clone();
         let (tx_sender_to_receiver, rx_receiver_from_sender) = async_channel::unbounded();
 
         {

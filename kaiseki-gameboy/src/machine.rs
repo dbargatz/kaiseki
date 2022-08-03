@@ -19,8 +19,8 @@ pub struct GameboyMachine {
 }
 
 impl Component for GameboyMachine {
-    fn id(&self) -> ComponentId {
-        self.id.clone()
+    fn id(&self) -> &ComponentId {
+        &self.id
     }
 }
 
@@ -51,11 +51,11 @@ impl GameboyMachine {
         let ram = RAM::new(&memory_bus);
         let osc = Oscillator::new(&clock_bus, 4_000_000);
 
-        clock_bus.connect(&cpu.id()).await.unwrap();
-        clock_bus.connect(&osc.id()).await.unwrap();
+        clock_bus.connect(cpu.id()).await.unwrap();
+        clock_bus.connect(osc.id()).await.unwrap();
 
-        memory_bus.connect(&cpu.id()).await.unwrap();
-        memory_bus.connect(&ram.id()).await.unwrap();
+        memory_bus.connect(cpu.id()).await.unwrap();
+        memory_bus.connect(ram.id()).await.unwrap();
 
         let machine = GameboyMachine {
             id: ComponentId::new("Gameboy Machine"),

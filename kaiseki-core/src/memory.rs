@@ -75,8 +75,8 @@ pub struct RAM<const N: usize> {
 }
 
 impl<const N: usize> Component for RAM<N> {
-    fn id(&self) -> ComponentId {
-        self.id.clone()
+    fn id(&self) -> &ComponentId {
+        &self.id
     }
 }
 

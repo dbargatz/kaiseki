@@ -22,8 +22,8 @@ pub struct Chip8Machine {
 }
 
 impl Component for Chip8Machine {
-    fn id(&self) -> ComponentId {
-        self.id.clone()
+    fn id(&self) -> &ComponentId {
+        &self.id
     }
 }
 
@@ -58,15 +58,15 @@ impl Chip8Machine {
         let mut ram = RAM::new(&memory_bus);
         let osc = Oscillator::new(&clock_bus, 500);
 
-        clock_bus.connect(&cpu.id()).await.unwrap();
-        clock_bus.connect(&osc.id()).await.unwrap();
+        clock_bus.connect(cpu.id()).await.unwrap();
+        clock_bus.connect(osc.id()).await.unwrap();
 
-        display_bus.connect(&cpu.id()).await.unwrap();
-        display_bus.connect(&display.id()).await.unwrap();
+        display_bus.connect(cpu.id()).await.unwrap();
+        display_bus.connect(display.id()).await.unwrap();
 
-        memory_bus.connect(&cpu.id()).await.unwrap();
-        memory_bus.connect(&display.id()).await.unwrap();
-        memory_bus.connect(&ram.id()).await.unwrap();
+        memory_bus.connect(cpu.id()).await.unwrap();
+        memory_bus.connect(display.id()).await.unwrap();
+        memory_bus.connect(ram.id()).await.unwrap();
 
         ram.write(0x200, program);
 

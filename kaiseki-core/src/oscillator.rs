@@ -60,8 +60,8 @@ pub struct Oscillator {
 }
 
 impl Component for Oscillator {
-    fn id(&self) -> ComponentId {
-        self.id.clone()
+    fn id(&self) -> &ComponentId {
+        &self.id
     }
 }
 

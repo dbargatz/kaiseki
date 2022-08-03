@@ -52,8 +52,8 @@ pub struct Bus<T: BusMessage> {
 }
 
 impl<T: BusMessage> Component for Bus<T> {
-    fn id(&self) -> ComponentId {
-        self.id.clone()
+    fn id(&self) -> &ComponentId {
+        &self.id
     }
 }
 

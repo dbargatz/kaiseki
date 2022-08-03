@@ -81,8 +81,8 @@ pub struct MonochromeDisplay<const N: usize, const W: usize, const H: usize> {
 }
 
 impl<const N: usize, const W: usize, const H: usize> Component for MonochromeDisplay<N, W, H> {
-    fn id(&self) -> ComponentId {
-        self.id.clone()
+    fn id(&self) -> &ComponentId {
+        &self.id
     }
 }
 

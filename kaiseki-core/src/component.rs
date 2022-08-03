@@ -34,7 +34,7 @@ impl ComponentId {
 }
 
 pub trait Component: 'static + Send + Sync {
-    fn id(&self) -> ComponentId;
+    fn id(&self) -> &ComponentId;
 }
 
 #[async_trait]

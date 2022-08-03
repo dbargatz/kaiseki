@@ -12,8 +12,8 @@ pub struct SM83Cpu {
 }
 
 impl Component for SM83Cpu {
-    fn id(&self) -> ComponentId {
-        self.id.clone()
+    fn id(&self) -> &ComponentId {
+        &self.id
     }
 }
 
