@@ -33,8 +33,11 @@ impl ComponentId {
     }
 }
 
-#[async_trait]
 pub trait Component: 'static + Send + Sync {
     fn id(&self) -> ComponentId;
+}
+
+#[async_trait]
+pub trait ExecutableComponent: Component {
     async fn start(&mut self);
 }

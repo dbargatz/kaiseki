@@ -4,7 +4,7 @@ use anyhow::Result;
 use clap::{ArgEnum, Parser};
 
 use kaiseki_chip8::machine::Chip8Machine;
-use kaiseki_core::Component;
+use kaiseki_core::ExecutableComponent;
 use kaiseki_gameboy::machine::GameboyMachine;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ArgEnum)]

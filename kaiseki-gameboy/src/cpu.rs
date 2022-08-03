@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use bytes::Buf;
 
-use kaiseki_core::{Component, ComponentId, MemoryBus, OscillatorBus};
+use kaiseki_core::{Component, ComponentId, ExecutableComponent, MemoryBus, OscillatorBus};
 
 #[derive(Debug)]
 pub struct SM83Cpu {
@@ -11,12 +11,14 @@ pub struct SM83Cpu {
     memory_bus: MemoryBus,
 }
 
-#[async_trait]
 impl Component for SM83Cpu {
     fn id(&self) -> ComponentId {
         self.id.clone()
     }
+}
 
+#[async_trait]
+impl ExecutableComponent for SM83Cpu {
     async fn start(&mut self) {
         loop {
             let (start_cycle, cycle_budget) = self.clock_bus.wait(&self.id).await.unwrap();

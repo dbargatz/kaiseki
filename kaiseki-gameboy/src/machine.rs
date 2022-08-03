@@ -2,7 +2,9 @@ use anyhow::Result;
 use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, StreamExt};
 
-use kaiseki_core::{Component, ComponentId, Machine, MemoryBus, Oscillator, OscillatorBus, RAM};
+use kaiseki_core::{
+    Component, ComponentId, ExecutableComponent, Machine, MemoryBus, Oscillator, OscillatorBus, RAM,
+};
 
 use crate::cpu::SM83Cpu;
 
@@ -16,19 +18,18 @@ pub struct GameboyMachine {
     system_clock: Oscillator,
 }
 
-#[async_trait]
 impl Component for GameboyMachine {
     fn id(&self) -> ComponentId {
         self.id.clone()
     }
+}
 
+#[async_trait]
+impl ExecutableComponent for GameboyMachine {
     async fn start(&mut self) {
         tracing::info!("starting gameboy machine");
 
         let mut futures = FuturesUnordered::new();
-        futures.push(self.clock_bus.start());
-        futures.push(self.memory_bus.start());
-
         futures.push(self.cpu.start());
         futures.push(self.ram.start());
         futures.push(self.system_clock.start());

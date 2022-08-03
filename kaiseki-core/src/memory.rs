@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use bytes::Bytes;
 
 use crate::bus::{Bus, BusError, BusMessage};
-use crate::component::{Component, ComponentId};
+use crate::component::{Component, ComponentId, ExecutableComponent};
 
 #[derive(Clone, Debug)]
 pub enum MemoryBusMessage {
@@ -74,12 +74,14 @@ pub struct RAM<const N: usize> {
     memory: [u8; N],
 }
 
-#[async_trait]
 impl<const N: usize> Component for RAM<N> {
     fn id(&self) -> ComponentId {
         self.id.clone()
     }
+}
 
+#[async_trait]
+impl<const N: usize> ExecutableComponent for RAM<N> {
     async fn start(&mut self) {
         loop {
             if let Ok((from, MemoryBusMessage::ReadAddress { address, length })) =

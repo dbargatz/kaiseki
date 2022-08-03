@@ -11,9 +11,7 @@ use crate::component::{Component, ComponentId};
 pub trait BusMessage: 'static + Send + Sync + Clone + fmt::Debug {}
 
 #[derive(Debug, Error)]
-pub enum MessageBusError {
-
-}
+pub enum MessageBusError {}
 
 struct MessageBusState<M: BusMessage> {
     receivers: HashMap<ComponentId, Vec<Receiver<M>>>,
@@ -22,12 +20,18 @@ struct MessageBusState<M: BusMessage> {
 
 pub struct MessageBus<M: BusMessage> {
     id: ComponentId,
-    state: Arc<Mutex<MessageBusState<M>>>
+    state: Arc<Mutex<MessageBusState<M>>>,
+}
+
+impl<M: BusMessage> Component for MessageBus<M> {
+    fn id(&self) -> ComponentId {
+        self.id.clone()
+    }
 }
 
 impl<M: BusMessage> MessageBus<M> {
     pub fn new(name: &str) -> Self {
-        let state = MessageBusState { 
+        let state = MessageBusState {
             receivers: HashMap::new(),
             senders: HashMap::new(),
         };
@@ -55,8 +59,8 @@ impl<M: BusMessage> MessageBus<M> {
 
 #[cfg(test)]
 mod tests {
-    use std::fmt;
     use super::{BusMessage, MessageBus};
+    use std::fmt;
 
     #[derive(Clone)]
     struct TestMessage {
@@ -67,7 +71,9 @@ mod tests {
 
     impl fmt::Debug for TestMessage {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.debug_struct("TestMessage").field("contents", &self.contents).finish()
+            f.debug_struct("TestMessage")
+                .field("contents", &self.contents)
+                .finish()
         }
     }
 

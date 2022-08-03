@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 use crate::bus::{Bus, BusError, BusMessage};
-use crate::component::{Component, ComponentId};
+use crate::component::{Component, ComponentId, ExecutableComponent};
 use crate::memory::MemoryBus;
 
 #[derive(Clone, Debug)]
@@ -80,12 +80,16 @@ pub struct MonochromeDisplay<const N: usize, const W: usize, const H: usize> {
     pixels: [u8; N],
 }
 
-#[async_trait]
 impl<const N: usize, const W: usize, const H: usize> Component for MonochromeDisplay<N, W, H> {
     fn id(&self) -> ComponentId {
         self.id.clone()
     }
+}
 
+#[async_trait]
+impl<const N: usize, const W: usize, const H: usize> ExecutableComponent
+    for MonochromeDisplay<N, W, H>
+{
     async fn start(&mut self) {
         loop {
             let request = self.display_bus.recv(&self.id).await;

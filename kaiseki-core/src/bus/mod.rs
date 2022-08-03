@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use async_channel::{unbounded, Receiver, Sender};
-use async_trait::async_trait;
 use thiserror::Error;
 use tokio::sync::Mutex;
 
@@ -21,7 +20,6 @@ pub enum BusError {
     #[error("received unexpected message {0} on bus")]
     UnexpectedMessage(String),
 }
-
 
 #[derive(Clone)]
 pub struct Envelope<T: BusMessage> {
@@ -53,13 +51,10 @@ pub struct Bus<T: BusMessage> {
     senders: Arc<Mutex<HashMap<ComponentId, Sender<Envelope<T>>>>>,
 }
 
-#[async_trait]
 impl<T: BusMessage> Component for Bus<T> {
     fn id(&self) -> ComponentId {
         self.id.clone()
     }
-
-    async fn start(&mut self) {}
 }
 
 impl<T: BusMessage> Default for Bus<T> {

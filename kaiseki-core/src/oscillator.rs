@@ -4,7 +4,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 use crate::bus::{Bus, BusError, BusMessage};
-use crate::component::{Component, ComponentId};
+use crate::component::{Component, ComponentId, ExecutableComponent};
 
 #[derive(Clone, Debug)]
 pub enum OscillatorBusMessage {
@@ -59,12 +59,14 @@ pub struct Oscillator {
     period: std::time::Duration,
 }
 
-#[async_trait]
 impl Component for Oscillator {
     fn id(&self) -> ComponentId {
         self.id.clone()
     }
+}
 
+#[async_trait]
+impl ExecutableComponent for Oscillator {
     async fn start(&mut self) {
         tracing::info!(
             "starting oscillator with frequency {}hz / period {}ns",

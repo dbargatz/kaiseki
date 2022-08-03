@@ -3,8 +3,8 @@ use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, StreamExt};
 
 use kaiseki_core::{
-    Component, ComponentId, DisplayBus, Machine, MemoryBus, MonochromeDisplay, Oscillator,
-    OscillatorBus, RAM,
+    Component, ComponentId, DisplayBus, ExecutableComponent, Machine, MemoryBus, MonochromeDisplay,
+    Oscillator, OscillatorBus, RAM,
 };
 
 use crate::cpu::Chip8CPU;
@@ -21,19 +21,18 @@ pub struct Chip8Machine {
     system_clock: Oscillator,
 }
 
-#[async_trait]
 impl Component for Chip8Machine {
     fn id(&self) -> ComponentId {
         self.id.clone()
     }
+}
 
+#[async_trait]
+impl ExecutableComponent for Chip8Machine {
     async fn start(&mut self) {
         tracing::info!("starting Chip-8 machine");
 
         let mut futures = FuturesUnordered::new();
-        futures.push(self.clock_bus.start());
-        futures.push(self.display_bus.start());
-        futures.push(self.memory_bus.start());
 
         futures.push(self.cpu.start());
         futures.push(self.display.start());

@@ -4,7 +4,9 @@ use anyhow::Result;
 use async_trait::async_trait;
 use bytes::Buf;
 
-use kaiseki_core::{Component, ComponentId, DisplayBus, MemoryBus, OscillatorBus};
+use kaiseki_core::{
+    Component, ComponentId, DisplayBus, ExecutableComponent, MemoryBus, OscillatorBus,
+};
 
 use super::registers::Chip8Registers;
 use super::stack::Chip8Stack;
@@ -24,12 +26,14 @@ pub struct Chip8CPU {
     stack: Chip8Stack,
 }
 
-#[async_trait]
 impl Component for Chip8CPU {
     fn id(&self) -> ComponentId {
         self.id.clone()
     }
+}
 
+#[async_trait]
+impl ExecutableComponent for Chip8CPU {
     async fn start(&mut self) {
         loop {
             let (start_cycle, cycle_budget) = self.clock_bus.wait(&self.id).await.unwrap();
