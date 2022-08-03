@@ -24,7 +24,7 @@ pub type OscillatorBus = Bus<OscillatorBusMessage>;
 
 impl OscillatorBus {
     pub async fn wait(&self, id: &ComponentId) -> Result<(usize, usize), BusError> {
-        let cycle_batch_start = self.recv(id).await.unwrap();
+        let (_, cycle_batch_start) = self.recv(id).await.unwrap();
         if let OscillatorBusMessage::CycleBatchStart {
             start_cycle,
             cycle_budget,
@@ -47,7 +47,7 @@ impl OscillatorBus {
             start_cycle,
             cycles_spent,
         };
-        self.send(id, cycle_batch_end).await.unwrap();
+        self.broadcast(id, cycle_batch_end).await.unwrap();
         Ok(())
     }
 }
@@ -93,11 +93,14 @@ impl Component for Oscillator {
             let mut end_cycle: usize = 0;
 
             let period_start = tokio::time::Instant::now();
-            self.bus.send(&self.id, start_msg).await.unwrap();
-            if let Ok(OscillatorBusMessage::CycleBatchEnd {
-                start_cycle,
-                cycles_spent,
-            }) = self.bus.recv(&self.id).await
+            self.bus.broadcast(&self.id, start_msg).await.unwrap();
+            if let Ok((
+                _,
+                OscillatorBusMessage::CycleBatchEnd {
+                    start_cycle,
+                    cycles_spent,
+                },
+            )) = self.bus.recv(&self.id).await
             {
                 assert!(current_cycle == start_cycle);
                 assert!(cycles_spent > 0);

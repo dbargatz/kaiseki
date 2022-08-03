@@ -27,8 +27,8 @@ pub type DisplayBus = Bus<DisplayBusMessage>;
 impl DisplayBus {
     pub async fn clear(&self, id: &ComponentId) -> Result<(), BusError> {
         let request = DisplayBusMessage::Clear;
-        self.send(id, request).await.unwrap();
-        let response = self.recv(id).await.unwrap();
+        self.broadcast(id, request).await.unwrap();
+        let (_, response) = self.recv(id).await.unwrap();
 
         if let DisplayBusMessage::ClearResponse = response {
             Ok(())
@@ -56,8 +56,8 @@ impl DisplayBus {
             x_pos: x_pos as usize,
             y_pos: y_pos as usize,
         };
-        self.send(id, request).await.unwrap();
-        let response = self.recv(id).await.unwrap();
+        self.broadcast(id, request).await.unwrap();
+        let (_, response) = self.recv(id).await.unwrap();
 
         if let DisplayBusMessage::DrawSpriteResponse { pixel_flipped } = response {
             Ok(pixel_flipped as u8)
@@ -90,13 +90,62 @@ impl<const N: usize, const W: usize, const H: usize> Component for MonochromeDis
         loop {
             let request = self.display_bus.recv(&self.id).await;
             match request {
-                Ok(DisplayBusMessage::Clear) => {
+                Ok((from, DisplayBusMessage::Clear)) => {
                     tracing::trace!("clearing display");
                     for pixel_byte in self.pixels.iter_mut() {
                         *pixel_byte = 0;
                     }
                     let response = DisplayBusMessage::ClearResponse;
-                    self.display_bus.send(&self.id, response).await.unwrap();
+                    self.display_bus
+                        .send(&self.id, &from, response)
+                        .await
+                        .unwrap();
+                }
+                Ok((
+                    from,
+                    DisplayBusMessage::DrawSprite {
+                        address,
+                        length,
+                        x_pos,
+                        y_pos,
+                    },
+                )) => {
+                    tracing::trace!(
+                        "drawing {}-byte sprite at 0x{:04X} to ({}, {})",
+                        length,
+                        address,
+                        x_pos,
+                        y_pos
+                    );
+                    let sprite = self
+                        .memory_bus
+                        .read(&self.id, address, length)
+                        .await
+                        .unwrap();
+                    let mut pixel_flipped = 0;
+                    for (sprite_row, sprite_byte) in sprite.iter().enumerate() {
+                        let pixel_y_idx = (y_pos + sprite_row) * W;
+                        for sprite_col in 0..=7 {
+                            let pixel_x_idx = x_pos + sprite_col;
+                            let pixel_byte_idx = (pixel_y_idx + pixel_x_idx) / 8;
+                            let pixel_bit_idx = (pixel_y_idx + pixel_x_idx) % 8;
+
+                            let sprite_bit =
+                                (sprite_byte & (0x80 >> sprite_col)) >> (7 - sprite_col);
+                            let sprite_mask = sprite_bit << (7 - pixel_bit_idx);
+                            let pixel_byte = self.pixels.get_mut(pixel_byte_idx).unwrap();
+                            let prev_value = *pixel_byte;
+                            *pixel_byte ^= sprite_mask;
+                            if prev_value != *pixel_byte {
+                                pixel_flipped = 1;
+                            }
+                        }
+                    }
+                    let response = DisplayBusMessage::DrawSpriteResponse { pixel_flipped };
+                    self.display_bus
+                        .send(&self.id, &from, response)
+                        .await
+                        .unwrap();
                 }
                 _ => panic!("unexpected request on display bus"),
             }

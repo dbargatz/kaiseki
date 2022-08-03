@@ -289,10 +289,12 @@ impl Chip8CPU {
                 );
             }
             0xD000..=0xDFFF => {
-                let _vx = self.regs.get_register_ref(vx_id);
-                let _vy = self.regs.get_register_ref(vy_id);
-                // TODO: implement display
-                // let self.regs.VF = self.display_bus.draw(vx, vy, self.regs.VI, embedded_nybble).await?;
+                let vx = *self.regs.get_register_ref(vx_id);
+                let vy = *self.regs.get_register_ref(vy_id);
+                self.regs.VF = self
+                    .display_bus
+                    .draw_sprite(&self.id, self.regs.VI, embedded_nybble, vx, vy)
+                    .await?;
                 self.regs.PC += 2;
                 desc = format!(
                     "draw {}-byte sprite in memory at 0x{:04X} to (V{}, V{})",

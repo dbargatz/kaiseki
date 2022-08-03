@@ -25,18 +25,20 @@ impl MemoryBus {
         length: usize,
     ) -> Result<Bytes, BusError> {
         let request = MemoryBusMessage::ReadAddress { address, length };
-        self.send(id, request).await.unwrap();
-        let response = self.recv(id).await.unwrap();
+        self.broadcast(id, request).await.unwrap();
 
-        if let MemoryBusMessage::ReadResponse { data } = response {
-            Ok(data)
-        } else {
-            tracing::warn!(
-                "unexpected response to ReadAddress on memory bus: {:?}",
-                response
-            );
-            let msg_str = format!("{:?}", response);
-            Err(BusError::UnexpectedMessage(msg_str))
+        loop {
+            let (from, response) = self.recv(id).await.unwrap();
+            if let MemoryBusMessage::ReadResponse { data } = response {
+                return Ok(data);
+            } else {
+                tracing::trace!(
+                    "{}: ignoring message {:?} from {} while waiting for ReadResponse",
+                    id,
+                    response,
+                    from
+                );
+            }
         }
     }
 
@@ -47,18 +49,20 @@ impl MemoryBus {
         data: Bytes,
     ) -> Result<(), BusError> {
         let request = MemoryBusMessage::WriteAddress { address, data };
-        self.send(id, request).await.unwrap();
-        let response = self.recv(id).await.unwrap();
+        self.broadcast(id, request).await.unwrap();
 
-        if let MemoryBusMessage::WriteResponse = response {
-            Ok(())
-        } else {
-            tracing::warn!(
-                "unexpected response to WriteAddress on memory bus: {:?}",
-                response
-            );
-            let msg_str = format!("{:?}", response);
-            Err(BusError::UnexpectedMessage(msg_str))
+        loop {
+            let (from, response) = self.recv(id).await.unwrap();
+            if let MemoryBusMessage::WriteResponse = response {
+                return Ok(());
+            } else {
+                tracing::trace!(
+                    "{}: ignoring message {:?} from {} while waiting for WriteResponse",
+                    id,
+                    response,
+                    from
+                );
+            }
         }
     }
 }
@@ -78,13 +82,13 @@ impl<const N: usize> Component for RAM<N> {
 
     async fn start(&mut self) {
         loop {
-            if let Ok(MemoryBusMessage::ReadAddress { address, length }) =
+            if let Ok((from, MemoryBusMessage::ReadAddress { address, length })) =
                 self.bus.recv(&self.id).await
             {
                 tracing::trace!("read request: {} bytes at 0x{:X}", length, address);
                 let mem = Bytes::copy_from_slice(&self.memory[address..address + length]);
                 let response = MemoryBusMessage::ReadResponse { data: mem };
-                self.bus.send(&self.id, response).await.unwrap();
+                self.bus.send(&self.id, &from, response).await.unwrap();
             }
         }
     }
