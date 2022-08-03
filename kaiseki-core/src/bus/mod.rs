@@ -8,7 +8,11 @@ use async_trait::async_trait;
 use thiserror::Error;
 use tokio::sync::Mutex;
 
+pub mod message;
+
 use crate::component::{Component, ComponentId};
+
+pub trait BusMessage: 'static + Send + Sync + Clone + fmt::Debug {}
 
 #[derive(Error, Debug)]
 pub enum BusError {
@@ -18,7 +22,6 @@ pub enum BusError {
     UnexpectedMessage(String),
 }
 
-pub trait BusMessage: 'static + Send + Sync + Clone + fmt::Debug {}
 
 #[derive(Clone)]
 pub struct Envelope<T: BusMessage> {
@@ -46,8 +49,6 @@ impl<T: BusMessage> fmt::Debug for Envelope<T> {
 #[derive(Clone)]
 pub struct Bus<T: BusMessage> {
     id: ComponentId,
-    //receivers: Arc<Mutex<HashMap<ComponentId, mpsc::UnboundedReceiver<Envelope<T>>>>>,
-    //senders: Arc<Mutex<HashMap<ComponentId, mpsc::UnboundedSender<Envelope<T>>>>>,
     receivers: Arc<Mutex<HashMap<ComponentId, Receiver<Envelope<T>>>>>,
     senders: Arc<Mutex<HashMap<ComponentId, Sender<Envelope<T>>>>>,
 }
@@ -119,7 +120,6 @@ impl<T: BusMessage> Bus<T> {
                 }
             }
         }
-        Err(BusError::Disconnected)
     }
 
     pub async fn connect(&self, component_id: &ComponentId) -> Result<(), BusError> {
