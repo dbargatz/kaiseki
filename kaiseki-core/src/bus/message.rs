@@ -28,6 +28,25 @@ struct MessageBusState<M: BusMessage> {
     senders: HashMap<ComponentId, Vec<(ComponentId, Sender<M>)>>,
 }
 
+pub struct MessageBusConnection<'a, M: BusMessage> {
+    bus: &'a MessageBus<M>,
+    component_id: &'a ComponentId,
+}
+
+impl<'a, M: BusMessage> MessageBusConnection<'a, M> {
+    pub async fn recv(&self) -> Result<M, MessageBusError> {
+        self.bus.recv(self.component_id).await
+    }
+
+    pub async fn send(&self, message: M) -> Result<(), MessageBusError> {
+        self.bus.send(self.component_id, message).await
+    }
+
+    pub fn try_recv(&self) -> Result<M, MessageBusError> {
+        self.bus.try_recv(self.component_id)
+    }
+}
+
 #[derive(Clone)]
 pub struct MessageBus<M: BusMessage> {
     id: ComponentId,
@@ -52,7 +71,11 @@ impl<M: BusMessage> MessageBus<M> {
         }
     }
 
-    pub fn connect(&self, sender: &impl Component, receiver: &impl Component) -> Result<()> {
+    pub fn connect<'a>(
+        &'a self,
+        sender: &'a impl Component,
+        receiver: &'a impl Component,
+    ) -> Result<(MessageBusConnection<'a, M>, MessageBusConnection<'a, M>)> {
         let sender_id = sender.id();
         let receiver_id = receiver.id();
         let (tx_sender_to_receiver, rx_receiver_from_sender) = async_channel::unbounded();
@@ -67,15 +90,23 @@ impl<M: BusMessage> MessageBus<M> {
             let sender_entry = state.senders.entry(sender_id.clone()).or_default();
             sender_entry.push((receiver_id.clone(), tx_sender_to_receiver));
         }
-        Ok(())
+
+        let sender_connection = MessageBusConnection::<M> {
+            bus: self,
+            component_id: sender_id,
+        };
+        let receiver_connection = MessageBusConnection::<M> {
+            bus: self,
+            component_id: receiver_id,
+        };
+        Ok((sender_connection, receiver_connection))
     }
 
-    pub async fn send(&self, sender: &impl Component, message: M) -> Result<(), MessageBusError> {
+    pub async fn send(&self, sender_id: &ComponentId, message: M) -> Result<(), MessageBusError> {
         let state = self
             .state
             .read()
             .expect("MessageBus state lock was poisoned in send()");
-        let sender_id = sender.id();
         let senders = state
             .senders
             .get(sender_id)
@@ -94,12 +125,11 @@ impl<M: BusMessage> MessageBus<M> {
         Ok(())
     }
 
-    pub async fn recv(&self, receiver: &impl Component) -> Result<M, MessageBusError> {
+    pub async fn recv(&self, receiver_id: &ComponentId) -> Result<M, MessageBusError> {
         let state = self
             .state
             .read()
             .expect("MessageBus state lock was poisoned in recv()");
-        let receiver_id = receiver.id();
         let receivers = state
             .receivers
             .get(receiver_id)
@@ -131,12 +161,11 @@ impl<M: BusMessage> MessageBus<M> {
         }
     }
 
-    pub fn try_recv(&self, receiver: &impl Component) -> Result<M, MessageBusError> {
+    pub fn try_recv(&self, receiver_id: &ComponentId) -> Result<M, MessageBusError> {
         let state = self
             .state
             .read()
             .expect("MessageBus state lock was poisoned in recv()");
-        let receiver_id = receiver.id();
         let receivers = state
             .receivers
             .get(receiver_id)
@@ -245,7 +274,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn send_recv_works() {
+    async fn send_recv_try_recv_works() {
         let ([a, b, c, d, e], bus) = setup();
 
         // Ensure that sending a message from `a` fails because it currently has no registered receivers.
@@ -253,7 +282,7 @@ mod tests {
             contents: String::from("message from a"),
         };
         assert_eq!(
-            bus.send(&a, a_msg.clone()).await,
+            bus.send(a.id(), a_msg.clone()).await,
             Err(MessageBusError::NoReceiversForSender(a.id().clone()))
         );
 
@@ -271,28 +300,75 @@ mod tests {
 
         // Ensure that `a` or `d` attempting to receive a message fails because they have no registered senders.
         assert_eq!(
-            bus.recv(&a).await,
+            bus.recv(a.id()).await,
             Err(MessageBusError::NoSendersToReceiver(a.id().clone()))
         );
         assert_eq!(
-            bus.recv(&d).await,
+            bus.recv(d.id()).await,
             Err(MessageBusError::NoSendersToReceiver(d.id().clone()))
         );
 
         // Ensure that a message sent from `a` is received by both `b` and `c`.
-        bus.send(&a, a_msg.clone()).await.unwrap();
-        let b_msg = bus.recv(&b).await.unwrap();
+        bus.send(a.id(), a_msg.clone()).await.unwrap();
+        let b_msg = bus.recv(b.id()).await.unwrap();
         assert_eq!(a_msg, b_msg);
-        let c_msg = bus.recv(&c).await.unwrap();
+        let c_msg = bus.recv(c.id()).await.unwrap();
         assert_eq!(a_msg, c_msg);
 
         // Ensure that a message sent from `a` is NOT received by `d` or `e`.
         assert_eq!(
-            bus.try_recv(&d),
+            bus.try_recv(d.id()),
             Err(MessageBusError::NoSendersToReceiver(d.id().clone()))
         );
         assert_eq!(
-            bus.try_recv(&e),
+            bus.try_recv(e.id()),
+            Err(MessageBusError::NoMessagesAvailable(e.id().clone()))
+        );
+    }
+
+    #[tokio::test]
+    async fn message_bus_connection_works() {
+        let ([a, b, c, d, e], bus) = setup();
+
+        // Connect the five components to the bus such that:
+        // `bus`
+        //   ├─ `a`
+        //   │   ├─ `b`
+        //   │   ├─ `c`
+        //   │
+        //   ├─ `d`
+        //       ├─ `e`
+        let (a_conn, b_conn) = bus.connect(&a, &b).expect("couldn't connect from a to b");
+        let (_, c_conn) = bus.connect(&a, &c).expect("couldn't connect from a to c");
+        let (d_conn, e_conn) = bus.connect(&d, &e).expect("couldn't connect from d to e");
+
+        // Ensure that `a_conn` or `d_conn` attempting to receive a message fails because they have no registered senders.
+        assert_eq!(
+            a_conn.recv().await,
+            Err(MessageBusError::NoSendersToReceiver(a.id().clone()))
+        );
+        assert_eq!(
+            d_conn.recv().await,
+            Err(MessageBusError::NoSendersToReceiver(d.id().clone()))
+        );
+
+        // Ensure that a message sent from `a_conn` is received by both `b_conn` and `c_conn`.
+        let a_msg = TestMessage {
+            contents: String::from("message from a"),
+        };
+        a_conn.send(a_msg.clone()).await.unwrap();
+        let b_msg = b_conn.recv().await.unwrap();
+        assert_eq!(a_msg, b_msg);
+        let c_msg = c_conn.recv().await.unwrap();
+        assert_eq!(a_msg, c_msg);
+
+        // Ensure that a message sent from `a_conn` is NOT received by `d_conn` or `e_conn`.
+        assert_eq!(
+            d_conn.try_recv(),
+            Err(MessageBusError::NoSendersToReceiver(d.id().clone()))
+        );
+        assert_eq!(
+            e_conn.try_recv(),
             Err(MessageBusError::NoMessagesAvailable(e.id().clone()))
         );
     }
