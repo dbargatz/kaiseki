@@ -49,24 +49,19 @@ impl Machine for Chip8Machine {}
 
 impl Chip8Machine {
     pub async fn new(program: &[u8]) -> Result<Chip8Machine> {
-        let clock_bus = OscillatorBus::new();
-        let display_bus = DisplayBus::new();
-        let memory_bus = MemoryBus::new();
+        let clock_bus = OscillatorBus::new("clock bus");
+        let display_bus = DisplayBus::new("display bus");
+        let memory_bus = MemoryBus::new("memory bus");
 
         let cpu = Chip8CPU::new(&clock_bus, &display_bus, &memory_bus, 0x200);
         let display = MonochromeDisplay::new(&display_bus, &memory_bus);
         let mut ram = RAM::new(&memory_bus);
         let osc = Oscillator::new(&clock_bus, 500);
 
-        clock_bus.connect(cpu.id()).await.unwrap();
-        clock_bus.connect(osc.id()).await.unwrap();
-
-        display_bus.connect(cpu.id()).await.unwrap();
-        display_bus.connect(display.id()).await.unwrap();
-
-        memory_bus.connect(cpu.id()).await.unwrap();
-        memory_bus.connect(display.id()).await.unwrap();
-        memory_bus.connect(ram.id()).await.unwrap();
+        let (_, _) = clock_bus.connect(osc.id(), cpu.id()).unwrap();
+        let (_, _) = display_bus.connect(cpu.id(), display.id()).unwrap();
+        let (_, _) = memory_bus.connect(cpu.id(), ram.id()).unwrap();
+        let (_, _) = memory_bus.connect(display.id(), ram.id()).unwrap();
 
         ram.write(0x200, program);
 

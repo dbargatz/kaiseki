@@ -5,7 +5,7 @@ mod machine;
 mod memory;
 mod oscillator;
 
-pub use crate::bus::{message::MessageBus, Bus, BusMessage};
+pub use crate::bus::{BusMessage, MessageBus, MessageBusConnection, MessageBusError};
 pub use crate::component::{Component, ComponentId, ExecutableComponent};
 pub use crate::display::{DisplayBus, DisplayBusMessage, MonochromeDisplay};
 pub use crate::machine::Machine;

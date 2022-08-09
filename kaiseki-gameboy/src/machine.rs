@@ -44,18 +44,15 @@ impl Machine for GameboyMachine {}
 
 impl GameboyMachine {
     pub async fn new() -> Result<GameboyMachine> {
-        let clock_bus = OscillatorBus::new();
-        let memory_bus = MemoryBus::new();
+        let clock_bus = OscillatorBus::new("clock bus");
+        let memory_bus = MemoryBus::new("memory bus");
 
         let cpu = SM83Cpu::new(&clock_bus, &memory_bus);
         let ram = RAM::new(&memory_bus);
         let osc = Oscillator::new(&clock_bus, 4_000_000);
 
-        clock_bus.connect(cpu.id()).await.unwrap();
-        clock_bus.connect(osc.id()).await.unwrap();
-
-        memory_bus.connect(cpu.id()).await.unwrap();
-        memory_bus.connect(ram.id()).await.unwrap();
+        clock_bus.connect(osc.id(), cpu.id()).unwrap();
+        memory_bus.connect(cpu.id(), ram.id()).unwrap();
 
         let machine = GameboyMachine {
             id: ComponentId::new("Gameboy Machine"),

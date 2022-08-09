@@ -3,7 +3,7 @@ use std::fmt;
 use anyhow::Result;
 use async_trait::async_trait;
 
-use crate::bus::{Bus, BusError, BusMessage};
+use crate::bus::{BusMessage, MessageBus, MessageBusError};
 use crate::component::{Component, ComponentId, ExecutableComponent};
 
 #[derive(Clone, Debug)]
@@ -20,35 +20,28 @@ pub enum OscillatorBusMessage {
 
 impl BusMessage for OscillatorBusMessage {}
 
-pub type OscillatorBus = Bus<OscillatorBusMessage>;
+pub type OscillatorBus = MessageBus<OscillatorBusMessage>;
 
 impl OscillatorBus {
-    pub async fn wait(&self, id: &ComponentId) -> Result<(usize, usize), BusError> {
-        let (_, cycle_batch_start) = self.recv(id).await.unwrap();
-        if let OscillatorBusMessage::CycleBatchStart {
-            start_cycle,
-            cycle_budget,
-        } = cycle_batch_start
-        {
-            Ok((start_cycle, cycle_budget))
-        } else {
-            let msg_str = format!("{:?}", cycle_batch_start);
-            Err(BusError::UnexpectedMessage(msg_str))
-        }
-    }
-
-    pub async fn complete(
+    pub async fn tick(
         &self,
         id: &ComponentId,
         start_cycle: usize,
-        cycles_spent: usize,
-    ) -> Result<()> {
-        let cycle_batch_end = OscillatorBusMessage::CycleBatchEnd {
+        cycle_budget: usize,
+    ) -> Result<(usize, usize), MessageBusError> {
+        let request = OscillatorBusMessage::CycleBatchStart {
+            start_cycle,
+            cycle_budget,
+        };
+        let response = self.request(id, request).await?;
+        if let OscillatorBusMessage::CycleBatchEnd {
             start_cycle,
             cycles_spent,
-        };
-        self.broadcast(id, cycle_batch_end).await.unwrap();
-        Ok(())
+        } = response
+        {
+            return Ok((start_cycle, cycles_spent));
+        }
+        panic!("unexpected response to tick()");
     }
 }
 
@@ -86,46 +79,34 @@ impl ExecutableComponent for Oscillator {
                 current_cycle,
                 current_cycle + cycle_budget
             );
-            let start_msg = OscillatorBusMessage::CycleBatchStart {
-                start_cycle: current_cycle,
-                cycle_budget,
-            };
-
-            let mut cycles_executed: usize = 0;
-            let mut end_cycle: usize = 0;
-
             let period_start = tokio::time::Instant::now();
-            self.bus.broadcast(&self.id, start_msg).await.unwrap();
-            if let Ok((
-                _,
-                OscillatorBusMessage::CycleBatchEnd {
-                    start_cycle,
-                    cycles_spent,
-                },
-            )) = self.bus.recv(&self.id).await
-            {
-                assert!(current_cycle == start_cycle);
-                assert!(cycles_spent > 0);
-                cycles_executed = cycles_spent;
-                end_cycle = start_cycle + cycles_executed;
-                match cycles_spent.cmp(&cycle_budget) {
-                    std::cmp::Ordering::Less => {
-                        tracing::info!(
-                            "budgeted {} cycles, used {} cycles",
-                            cycle_budget,
-                            cycles_spent
-                        );
-                        cycle_budget = cycles_spent;
-                    }
-                    std::cmp::Ordering::Greater => {
-                        tracing::error!(
-                            "budgeted {} cycles, but {} were consumed",
-                            cycle_budget,
-                            cycles_spent
-                        );
-                    }
-                    _ => {}
+            let (start_cycle, cycles_spent) = self
+                .bus
+                .tick(&self.id, current_cycle, cycle_budget)
+                .await
+                .unwrap();
+
+            assert!(current_cycle == start_cycle);
+            assert!(cycles_spent > 0);
+            let cycles_executed = cycles_spent;
+            let end_cycle = start_cycle + cycles_executed;
+            match cycles_spent.cmp(&cycle_budget) {
+                std::cmp::Ordering::Less => {
+                    tracing::info!(
+                        "budgeted {} cycles, used {} cycles",
+                        cycle_budget,
+                        cycles_spent
+                    );
+                    cycle_budget = cycles_spent;
                 }
+                std::cmp::Ordering::Greater => {
+                    tracing::error!(
+                        "budgeted {} cycles, but {} were consumed",
+                        cycle_budget,
+                        cycles_spent
+                    );
+                }
+                _ => {}
             }
             let period_end = tokio::time::Instant::now();
 

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 
-use crate::bus::{Bus, BusError, BusMessage};
+use crate::bus::{BusMessage, MessageBus, MessageBusError};
 use crate::component::{Component, ComponentId, ExecutableComponent};
 use crate::memory::MemoryBus;
 
@@ -22,24 +22,16 @@ pub enum DisplayBusMessage {
 
 impl BusMessage for DisplayBusMessage {}
 
-pub type DisplayBus = Bus<DisplayBusMessage>;
+pub type DisplayBus = MessageBus<DisplayBusMessage>;
 
 impl DisplayBus {
-    pub async fn clear(&self, id: &ComponentId) -> Result<(), BusError> {
+    pub async fn clear(&self, id: &ComponentId) -> Result<(), MessageBusError> {
         let request = DisplayBusMessage::Clear;
-        self.broadcast(id, request).await.unwrap();
-        let (_, response) = self.recv(id).await.unwrap();
-
+        let response = self.request(id, request).await?;
         if let DisplayBusMessage::ClearResponse = response {
-            Ok(())
-        } else {
-            tracing::warn!(
-                "unexpected response to Clear on display bus: {:?}",
-                response
-            );
-            let msg_str = format!("{:?}", response);
-            Err(BusError::UnexpectedMessage(msg_str))
+            return Ok(());
         }
+        panic!("unexpected response to clear()");
     }
 
     pub async fn draw_sprite(
@@ -49,26 +41,18 @@ impl DisplayBus {
         length: u8,
         x_pos: u8,
         y_pos: u8,
-    ) -> Result<u8, BusError> {
+    ) -> Result<u8, MessageBusError> {
         let request = DisplayBusMessage::DrawSprite {
             address: address as usize,
             length: length as usize,
             x_pos: x_pos as usize,
             y_pos: y_pos as usize,
         };
-        self.broadcast(id, request).await.unwrap();
-        let (_, response) = self.recv(id).await.unwrap();
-
+        let response = self.request(id, request).await?;
         if let DisplayBusMessage::DrawSpriteResponse { pixel_flipped } = response {
-            Ok(pixel_flipped as u8)
-        } else {
-            tracing::warn!(
-                "unexpected response to DrawSprite on memory bus: {:?}",
-                response
-            );
-            let msg_str = format!("{:?}", response);
-            Err(BusError::UnexpectedMessage(msg_str))
+            return Ok(pixel_flipped as u8);
         }
+        panic!("unexpected response to draw_sprite()");
     }
 }
 
@@ -94,25 +78,22 @@ impl<const N: usize, const W: usize, const H: usize> ExecutableComponent
         loop {
             let request = self.display_bus.recv(&self.id).await;
             match request {
-                Ok((from, DisplayBusMessage::Clear)) => {
+                Ok((DisplayBusMessage::Clear, responder)) => {
                     tracing::trace!("clearing display");
                     for pixel_byte in self.pixels.iter_mut() {
                         *pixel_byte = 0;
                     }
                     let response = DisplayBusMessage::ClearResponse;
-                    self.display_bus
-                        .send(&self.id, &from, response)
-                        .await
-                        .unwrap();
+                    responder.unwrap().send(response).unwrap();
                 }
                 Ok((
-                    from,
                     DisplayBusMessage::DrawSprite {
                         address,
                         length,
                         x_pos,
                         y_pos,
                     },
+                    responder,
                 )) => {
                     tracing::trace!(
                         "drawing {}-byte sprite at 0x{:04X} to ({}, {})",
@@ -146,10 +127,7 @@ impl<const N: usize, const W: usize, const H: usize> ExecutableComponent
                         }
                     }
                     let response = DisplayBusMessage::DrawSpriteResponse { pixel_flipped };
-                    self.display_bus
-                        .send(&self.id, &from, response)
-                        .await
-                        .unwrap();
+                    responder.unwrap().send(response).unwrap();
                 }
                 _ => panic!("unexpected request on display bus"),
             }

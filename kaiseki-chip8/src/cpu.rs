@@ -6,6 +6,7 @@ use bytes::Buf;
 
 use kaiseki_core::{
     Component, ComponentId, DisplayBus, ExecutableComponent, MemoryBus, OscillatorBus,
+    OscillatorBusMessage,
 };
 
 use super::registers::Chip8Registers;
@@ -36,17 +37,23 @@ impl Component for Chip8CPU {
 impl ExecutableComponent for Chip8CPU {
     async fn start(&mut self) {
         loop {
-            let (start_cycle, cycle_budget) = self.clock_bus.wait(&self.id).await.unwrap();
-            let end_cycle = start_cycle + cycle_budget;
-            tracing::info!("executing cycles {} - {}", start_cycle, end_cycle);
-            for current_cycle in start_cycle..end_cycle {
-                self.execute_cycle(current_cycle).await.unwrap();
+            let (message, responder) = self.clock_bus.recv(&self.id).await.unwrap();
+            if let OscillatorBusMessage::CycleBatchStart {
+                start_cycle,
+                cycle_budget,
+            } = message
+            {
+                let end_cycle = start_cycle + cycle_budget;
+                tracing::info!("executing cycles {} - {}", start_cycle, end_cycle);
+                for current_cycle in start_cycle..end_cycle {
+                    self.execute_cycle(current_cycle).await.unwrap();
+                }
+                let response = OscillatorBusMessage::CycleBatchEnd {
+                    start_cycle,
+                    cycles_spent: cycle_budget,
+                };
+                responder.unwrap().send(response).unwrap();
             }
-
-            self.clock_bus
-                .complete(&self.id, start_cycle, cycle_budget)
-                .await
-                .unwrap();
         }
     }
 }
