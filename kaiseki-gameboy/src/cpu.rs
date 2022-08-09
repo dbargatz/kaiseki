@@ -57,12 +57,7 @@ impl SM83Cpu {
     async fn execute_cycle(&mut self, cycle_number: usize) -> Result<()> {
         let offset = (2 * cycle_number) % 0x800;
         let address = 0x200 + offset;
-        let instruction_bytes = self
-            .memory_bus
-            .read(&self.id, address, 2)
-            .await
-            .unwrap()
-            .get_u16();
+        let instruction_bytes = self.memory_bus.read(address, 2).unwrap().get_u16();
         tracing::debug!(
             "cycle {} | load 0x{:04X} => 0x{:04X}",
             cycle_number,

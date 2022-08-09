@@ -1,6 +1,8 @@
 use std::fmt;
 
+use anyhow::Result;
 use async_trait::async_trait;
+use bytes::Bytes;
 use uuid::Uuid;
 
 #[derive(Debug, Eq, Hash, PartialEq)]
@@ -35,6 +37,11 @@ impl ComponentId {
 
 pub trait Component: 'static + Send + Sync {
     fn id(&self) -> &ComponentId;
+}
+
+pub trait AddressableComponent: Component {
+    fn read(&self, address: usize, length: usize) -> Result<Bytes>;
+    fn write(&self, address: usize, data: &[u8]) -> Result<()>;
 }
 
 #[async_trait]

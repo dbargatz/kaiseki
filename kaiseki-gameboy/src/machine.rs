@@ -31,7 +31,6 @@ impl ExecutableComponent for GameboyMachine {
 
         let mut futures = FuturesUnordered::new();
         futures.push(self.cpu.start());
-        futures.push(self.ram.start());
         futures.push(self.system_clock.start());
 
         while futures.next().await.is_some() {
@@ -52,7 +51,7 @@ impl GameboyMachine {
         let osc = Oscillator::new(&clock_bus, 4_000_000);
 
         clock_bus.connect(osc.id(), cpu.id()).unwrap();
-        memory_bus.connect(cpu.id(), ram.id()).unwrap();
+        memory_bus.map(ram.clone(), 0x0000, 0x1000, false).unwrap();
 
         let machine = GameboyMachine {
             id: ComponentId::new("Gameboy Machine"),

@@ -9,7 +9,11 @@ async-channel = { version = "1" }
 async-trait = { version = "0.1" }
 bytes = { version = "1" }
 futures = { version = "0.3" }
+rangemap = { version = "1" }
 thiserror = { version = "1" }
 tokio = { version = "1", features = ["full"] }
 tracing = { version = "0.1" }
 uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+rand = { version = "0.8" }

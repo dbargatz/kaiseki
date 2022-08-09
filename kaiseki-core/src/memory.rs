@@ -1,57 +1,17 @@
+use std::sync::{Arc, RwLock};
+
 use anyhow::Result;
-use async_trait::async_trait;
 use bytes::Bytes;
 
-use crate::bus::{BusMessage, MessageBus, MessageBusError};
-use crate::component::{Component, ComponentId, ExecutableComponent};
+use crate::bus::AddressableBus;
+use crate::component::{AddressableComponent, Component, ComponentId};
+
+pub type MemoryBus = AddressableBus;
 
 #[derive(Clone, Debug)]
-pub enum MemoryBusMessage {
-    ReadAddress { address: usize, length: usize },
-    ReadResponse { data: Bytes },
-    WriteAddress { address: usize, data: Bytes },
-    WriteResponse,
-}
-
-impl BusMessage for MemoryBusMessage {}
-
-pub type MemoryBus = MessageBus<MemoryBusMessage>;
-
-impl MemoryBus {
-    pub async fn read(
-        &self,
-        id: &ComponentId,
-        address: usize,
-        length: usize,
-    ) -> Result<Bytes, MessageBusError> {
-        let request = MemoryBusMessage::ReadAddress { address, length };
-        let response = self.request(id, request).await?;
-        if let MemoryBusMessage::ReadResponse { data } = response {
-            return Ok(data);
-        }
-        panic!("unexpected response to read()");
-    }
-
-    pub async fn write(
-        &self,
-        id: &ComponentId,
-        address: usize,
-        data: Bytes,
-    ) -> Result<(), MessageBusError> {
-        let request = MemoryBusMessage::WriteAddress { address, data };
-        let response = self.request(id, request).await?;
-        if let MemoryBusMessage::WriteResponse = response {
-            return Ok(());
-        }
-        panic!("unexpected response to write()");
-    }
-}
-
-#[derive(Debug)]
 pub struct RAM<const N: usize> {
     id: ComponentId,
-    bus: MemoryBus,
-    memory: [u8; N],
+    memory: Arc<RwLock<[u8; N]>>,
 }
 
 impl<const N: usize> Component for RAM<N> {
@@ -60,19 +20,21 @@ impl<const N: usize> Component for RAM<N> {
     }
 }
 
-#[async_trait]
-impl<const N: usize> ExecutableComponent for RAM<N> {
-    async fn start(&mut self) {
-        loop {
-            if let Ok((MemoryBusMessage::ReadAddress { address, length }, responder)) =
-                self.bus.recv(&self.id).await
-            {
-                tracing::trace!("read request: {} bytes at 0x{:X}", length, address);
-                let mem = Bytes::copy_from_slice(&self.memory[address..address + length]);
-                let response = MemoryBusMessage::ReadResponse { data: mem };
-                responder.unwrap().send(response).unwrap();
-            }
+impl<const N: usize> AddressableComponent for RAM<N> {
+    fn read(&self, address: usize, length: usize) -> Result<Bytes> {
+        let memory = self.memory.read().unwrap();
+        let slice = &memory[address..address + length];
+        Ok(Bytes::copy_from_slice(slice))
+    }
+
+    fn write(&self, address: usize, data: &[u8]) -> Result<()> {
+        let mut addr = address;
+        let mut memory = self.memory.write().unwrap();
+        for byte in data {
+            memory[addr] = *byte;
+            addr += 1;
         }
+        Ok(())
     }
 }
 
@@ -81,20 +43,7 @@ impl<const N: usize> RAM<N> {
         let id = ComponentId::new("RAM");
         RAM {
             id,
-            bus: memory_bus.clone(),
-            memory: [0; N],
-        }
-    }
-
-    pub fn read(&self, addr: usize, len: usize) -> Bytes {
-        Bytes::copy_from_slice(&self.memory[addr..addr + len])
-    }
-
-    pub fn write(&mut self, addr: usize, bytes: &[u8]) {
-        let mut address = addr;
-        for byte in bytes {
-            self.memory[address] = *byte;
-            address += 1;
+            memory: Arc::new(RwLock::new([0; N])),
         }
     }
 }

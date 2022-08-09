@@ -3,8 +3,8 @@ use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, StreamExt};
 
 use kaiseki_core::{
-    Component, ComponentId, DisplayBus, ExecutableComponent, Machine, MemoryBus, MonochromeDisplay,
-    Oscillator, OscillatorBus, RAM,
+    AddressableComponent, Component, ComponentId, DisplayBus, ExecutableComponent, Machine,
+    MemoryBus, MonochromeDisplay, Oscillator, OscillatorBus, RAM,
 };
 
 use crate::cpu::Chip8CPU;
@@ -36,7 +36,6 @@ impl ExecutableComponent for Chip8Machine {
 
         futures.push(self.cpu.start());
         futures.push(self.display.start());
-        futures.push(self.ram.start());
         futures.push(self.system_clock.start());
 
         while futures.next().await.is_some() {
@@ -55,15 +54,13 @@ impl Chip8Machine {
 
         let cpu = Chip8CPU::new(&clock_bus, &display_bus, &memory_bus, 0x200);
         let display = MonochromeDisplay::new(&display_bus, &memory_bus);
-        let mut ram = RAM::new(&memory_bus);
+        let ram = RAM::new(&memory_bus);
         let osc = Oscillator::new(&clock_bus, 500);
 
         let (_, _) = clock_bus.connect(osc.id(), cpu.id()).unwrap();
         let (_, _) = display_bus.connect(cpu.id(), display.id()).unwrap();
-        let (_, _) = memory_bus.connect(cpu.id(), ram.id()).unwrap();
-        let (_, _) = memory_bus.connect(display.id(), ram.id()).unwrap();
-
-        ram.write(0x200, program);
+        memory_bus.map(ram.clone(), 0x0000, 0x1000, false).unwrap();
+        ram.write(0x200, program).unwrap();
 
         let machine = Chip8Machine {
             id: ComponentId::new("Chip-8 Machine"),

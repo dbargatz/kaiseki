@@ -79,7 +79,7 @@ impl Chip8CPU {
     }
 
     async fn fetch(&self, address: u16) -> Result<u16> {
-        let mut bytes = self.memory_bus.read(&self.id, address as usize, 2).await?;
+        let mut bytes = self.memory_bus.read(address as usize, 2)?;
         Ok(bytes.get_u16())
     }
 

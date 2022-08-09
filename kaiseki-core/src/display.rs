@@ -102,11 +102,7 @@ impl<const N: usize, const W: usize, const H: usize> ExecutableComponent
                         x_pos,
                         y_pos
                     );
-                    let sprite = self
-                        .memory_bus
-                        .read(&self.id, address, length)
-                        .await
-                        .unwrap();
+                    let sprite = self.memory_bus.read(address, length).unwrap();
                     let mut pixel_flipped = 0;
                     for (sprite_row, sprite_byte) in sprite.iter().enumerate() {
                         let pixel_y_idx = (y_pos + sprite_row) * W;
