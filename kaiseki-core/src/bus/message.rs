@@ -39,7 +39,7 @@ pub struct MessageBusConnection<'a, M: BusMessage> {
 }
 
 impl<'a, M: BusMessage> MessageBusConnection<'a, M> {
-    pub async fn recv(&self) -> Result<M, MessageBusError> {
+    pub async fn recv(&self) -> Result<(M, Option<oneshot::Sender<M>>), MessageBusError> {
         self.bus.recv(self.component_id).await
     }
 
@@ -51,7 +51,7 @@ impl<'a, M: BusMessage> MessageBusConnection<'a, M> {
         self.bus.send(self.component_id, message).await
     }
 
-    pub fn try_recv(&self) -> Result<M, MessageBusError> {
+    pub fn try_recv(&self) -> Result<(M, Option<oneshot::Sender<M>>), MessageBusError> {
         self.bus.try_recv(self.component_id)
     }
 }
@@ -187,7 +187,10 @@ impl<M: BusMessage> MessageBus<M> {
         Ok(())
     }
 
-    pub async fn recv(&self, receiver_id: &ComponentId) -> Result<M, MessageBusError> {
+    pub async fn recv(
+        &self,
+        receiver_id: &ComponentId,
+    ) -> Result<(M, Option<oneshot::Sender<M>>), MessageBusError> {
         let state = self
             .state
             .read()
@@ -212,7 +215,7 @@ impl<M: BusMessage> MessageBus<M> {
                 match result {
                     Ok(message) => {
                         tracing::trace!("{} => {}: {:?}", sender_id, receiver_id, message.request);
-                        Ok(message.request)
+                        Ok((message.request, message.response_tx))
                     }
                     Err(_) => Err(MessageBusError::Disconnected(
                         sender_id,
@@ -223,7 +226,10 @@ impl<M: BusMessage> MessageBus<M> {
         }
     }
 
-    pub fn try_recv(&self, receiver_id: &ComponentId) -> Result<M, MessageBusError> {
+    pub fn try_recv(
+        &self,
+        receiver_id: &ComponentId,
+    ) -> Result<(M, Option<oneshot::Sender<M>>), MessageBusError> {
         let state = self
             .state
             .read()
@@ -237,7 +243,7 @@ impl<M: BusMessage> MessageBus<M> {
             match rx.try_recv() {
                 Ok(message) => {
                     tracing::trace!("{} => {}: {:?}", sender_id, receiver_id, message.request);
-                    return Ok(message.request);
+                    return Ok((message.request, message.response_tx));
                 }
                 Err(TryRecvError::Empty) => continue,
                 Err(TryRecvError::Closed) => {
@@ -369,29 +375,29 @@ mod tests {
 
         // Ensure that `a` or `d` attempting to receive a message fails because they have no registered senders.
         assert_eq!(
-            bus.recv(a.id()).await,
-            Err(MessageBusError::NoSendersToReceiver(a.id().clone()))
+            bus.recv(a.id()).await.unwrap_err(),
+            MessageBusError::NoSendersToReceiver(a.id().clone())
         );
         assert_eq!(
-            bus.recv(d.id()).await,
-            Err(MessageBusError::NoSendersToReceiver(d.id().clone()))
+            bus.recv(d.id()).await.unwrap_err(),
+            MessageBusError::NoSendersToReceiver(d.id().clone())
         );
 
         // Ensure that a message sent from `a` is received by both `b` and `c`.
         bus.send(a.id(), a_msg.clone()).await.unwrap();
-        let b_msg = bus.recv(b.id()).await.unwrap();
+        let (b_msg, _) = bus.recv(b.id()).await.unwrap();
         assert_eq!(a_msg, b_msg);
-        let c_msg = bus.recv(c.id()).await.unwrap();
+        let (c_msg, _) = bus.recv(c.id()).await.unwrap();
         assert_eq!(a_msg, c_msg);
 
         // Ensure that a message sent from `a` is NOT received by `d` or `e`.
         assert_eq!(
-            bus.try_recv(d.id()),
-            Err(MessageBusError::NoSendersToReceiver(d.id().clone()))
+            bus.try_recv(d.id()).unwrap_err(),
+            MessageBusError::NoSendersToReceiver(d.id().clone())
         );
         assert_eq!(
-            bus.try_recv(e.id()),
-            Err(MessageBusError::NoMessagesAvailable(e.id().clone()))
+            bus.try_recv(e.id()).unwrap_err(),
+            MessageBusError::NoMessagesAvailable(e.id().clone())
         );
     }
 
@@ -419,12 +425,12 @@ mod tests {
 
         // Ensure that `a_conn` or `d_conn` attempting to receive a message fails because they have no registered senders.
         assert_eq!(
-            a_conn.recv().await,
-            Err(MessageBusError::NoSendersToReceiver(a.id().clone()))
+            a_conn.recv().await.unwrap_err(),
+            MessageBusError::NoSendersToReceiver(a.id().clone())
         );
         assert_eq!(
-            d_conn.recv().await,
-            Err(MessageBusError::NoSendersToReceiver(d.id().clone()))
+            d_conn.recv().await.unwrap_err(),
+            MessageBusError::NoSendersToReceiver(d.id().clone())
         );
 
         // Ensure that a message sent from `a_conn` is received by both `b_conn` and `c_conn`.
@@ -432,19 +438,19 @@ mod tests {
             contents: String::from("message from a"),
         };
         a_conn.send(a_msg.clone()).await.unwrap();
-        let b_msg = b_conn.recv().await.unwrap();
+        let (b_msg, _) = b_conn.recv().await.unwrap();
         assert_eq!(a_msg, b_msg);
-        let c_msg = c_conn.recv().await.unwrap();
+        let (c_msg, _) = c_conn.recv().await.unwrap();
         assert_eq!(a_msg, c_msg);
 
         // Ensure that a message sent from `a_conn` is NOT received by `d_conn` or `e_conn`.
         assert_eq!(
-            d_conn.try_recv(),
-            Err(MessageBusError::NoSendersToReceiver(d.id().clone()))
+            d_conn.try_recv().unwrap_err(),
+            MessageBusError::NoSendersToReceiver(d.id().clone())
         );
         assert_eq!(
-            e_conn.try_recv(),
-            Err(MessageBusError::NoMessagesAvailable(e.id().clone()))
+            e_conn.try_recv().unwrap_err(),
+            MessageBusError::NoMessagesAvailable(e.id().clone())
         );
     }
 }
