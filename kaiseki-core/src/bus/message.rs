@@ -1,4 +1,4 @@
-use futures::{stream::FuturesUnordered, StreamExt};
+use futures::{channel::oneshot, stream::FuturesUnordered, StreamExt};
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::{Arc, RwLock};
@@ -23,9 +23,14 @@ pub enum MessageBusError {
     NoSendersToReceiver(ComponentId),
 }
 
+struct MessageEnvelope<M: BusMessage> {
+    pub response_tx: Option<oneshot::Sender<M>>,
+    pub request: M,
+}
+
 struct MessageBusState<M: BusMessage> {
-    receivers: HashMap<ComponentId, Vec<(ComponentId, Receiver<M>)>>,
-    senders: HashMap<ComponentId, Vec<(ComponentId, Sender<M>)>>,
+    receivers: HashMap<ComponentId, Vec<(ComponentId, Receiver<MessageEnvelope<M>>)>>,
+    senders: HashMap<ComponentId, Vec<(ComponentId, Sender<MessageEnvelope<M>>)>>,
 }
 
 pub struct MessageBusConnection<'a, M: BusMessage> {
@@ -36,6 +41,10 @@ pub struct MessageBusConnection<'a, M: BusMessage> {
 impl<'a, M: BusMessage> MessageBusConnection<'a, M> {
     pub async fn recv(&self) -> Result<M, MessageBusError> {
         self.bus.recv(self.component_id).await
+    }
+
+    pub async fn request(&self, request: M) -> Result<M, MessageBusError> {
+        self.bus.request(self.component_id, request).await
     }
 
     pub async fn send(&self, message: M) -> Result<(), MessageBusError> {
@@ -73,11 +82,9 @@ impl<M: BusMessage> MessageBus<M> {
 
     pub fn connect<'a>(
         &'a self,
-        sender: &'a impl Component,
-        receiver: &'a impl Component,
+        sender_id: &'a ComponentId,
+        receiver_id: &'a ComponentId,
     ) -> Result<(MessageBusConnection<'a, M>, MessageBusConnection<'a, M>)> {
-        let sender_id = sender.id();
-        let receiver_id = receiver.id();
         let (tx_sender_to_receiver, rx_receiver_from_sender) = async_channel::unbounded();
 
         {
@@ -102,6 +109,57 @@ impl<M: BusMessage> MessageBus<M> {
         Ok((sender_connection, receiver_connection))
     }
 
+    pub async fn request(&self, sender_id: &ComponentId, request: M) -> Result<M, MessageBusError> {
+        let state = self
+            .state
+            .read()
+            .expect("MessageBus state lock was poisoned in send()");
+        let senders = state
+            .senders
+            .get(sender_id)
+            .ok_or(MessageBusError::NoReceiversForSender(sender_id.clone()))?;
+
+        let mut futures = FuturesUnordered::new();
+
+        for (receiver_id, tx) in senders {
+            let (responder_tx, responder_rx) = oneshot::channel();
+            let envelope = MessageEnvelope::<M> {
+                response_tx: Some(responder_tx),
+                request: request.clone(),
+            };
+            match tx.send(envelope).await {
+                Ok(_) => tracing::trace!("{} => {}: {:?}", sender_id, receiver_id, request),
+                Err(_) => {
+                    return Err(MessageBusError::Disconnected(
+                        sender_id.clone(),
+                        receiver_id.clone(),
+                    ))
+                }
+            }
+            futures.push(async {
+                let response = responder_rx.await;
+                (receiver_id.clone(), response)
+            });
+        }
+
+        match futures.next().await {
+            None => panic!("ran out of futures to poll in request()"),
+            Some(output) => {
+                let (receiver_id, result) = output;
+                match result {
+                    Ok(message) => {
+                        tracing::trace!("{} <= {}: {:?}", sender_id, receiver_id, message);
+                        Ok(message)
+                    }
+                    Err(_) => Err(MessageBusError::Disconnected(
+                        sender_id.clone(),
+                        receiver_id.clone(),
+                    )),
+                }
+            }
+        }
+    }
+
     pub async fn send(&self, sender_id: &ComponentId, message: M) -> Result<(), MessageBusError> {
         let state = self
             .state
@@ -112,7 +170,11 @@ impl<M: BusMessage> MessageBus<M> {
             .get(sender_id)
             .ok_or(MessageBusError::NoReceiversForSender(sender_id.clone()))?;
         for (receiver_id, tx) in senders {
-            match tx.send(message.clone()).await {
+            let envelope = MessageEnvelope::<M> {
+                response_tx: None,
+                request: message.clone(),
+            };
+            match tx.send(envelope).await {
                 Ok(_) => tracing::trace!("{} => {}: {:?}", sender_id, receiver_id, message),
                 Err(_) => {
                     return Err(MessageBusError::Disconnected(
@@ -149,8 +211,8 @@ impl<M: BusMessage> MessageBus<M> {
                 let (sender_id, result) = output;
                 match result {
                     Ok(message) => {
-                        tracing::trace!("{} => {}: {:?}", sender_id, receiver_id, message);
-                        Ok(message)
+                        tracing::trace!("{} => {}: {:?}", sender_id, receiver_id, message.request);
+                        Ok(message.request)
                     }
                     Err(_) => Err(MessageBusError::Disconnected(
                         sender_id,
@@ -174,8 +236,8 @@ impl<M: BusMessage> MessageBus<M> {
         for (sender_id, rx) in receivers {
             match rx.try_recv() {
                 Ok(message) => {
-                    tracing::trace!("{} => {}: {:?}", sender_id, receiver_id, message);
-                    return Ok(message);
+                    tracing::trace!("{} => {}: {:?}", sender_id, receiver_id, message.request);
+                    return Ok(message.request);
                 }
                 Err(TryRecvError::Empty) => continue,
                 Err(TryRecvError::Closed) => {
@@ -249,7 +311,11 @@ mod tests {
     #[test]
     fn connect_works() {
         let ([a, b, _, _, _], bus) = setup();
-        bus.connect(&a, &b).expect("couldn't connect from a to b");
+        let (a_conn, b_conn) = bus
+            .connect(a.id(), b.id())
+            .expect("couldn't connect from a to b");
+        assert_eq!(a_conn.component_id, a.id());
+        assert_eq!(b_conn.component_id, b.id());
 
         let state = bus.state.read().unwrap();
         let sender_value = state
@@ -294,9 +360,12 @@ mod tests {
         //   │
         //   ├─ `d`
         //       ├─ `e`
-        bus.connect(&a, &b).expect("couldn't connect from a to b");
-        bus.connect(&a, &c).expect("couldn't connect from a to c");
-        bus.connect(&d, &e).expect("couldn't connect from d to e");
+        bus.connect(a.id(), b.id())
+            .expect("couldn't connect from a to b");
+        bus.connect(a.id(), c.id())
+            .expect("couldn't connect from a to c");
+        bus.connect(d.id(), e.id())
+            .expect("couldn't connect from d to e");
 
         // Ensure that `a` or `d` attempting to receive a message fails because they have no registered senders.
         assert_eq!(
@@ -338,9 +407,15 @@ mod tests {
         //   │
         //   ├─ `d`
         //       ├─ `e`
-        let (a_conn, b_conn) = bus.connect(&a, &b).expect("couldn't connect from a to b");
-        let (_, c_conn) = bus.connect(&a, &c).expect("couldn't connect from a to c");
-        let (d_conn, e_conn) = bus.connect(&d, &e).expect("couldn't connect from d to e");
+        let (a_conn, b_conn) = bus
+            .connect(a.id(), b.id())
+            .expect("couldn't connect from a to b");
+        let (_, c_conn) = bus
+            .connect(a.id(), c.id())
+            .expect("couldn't connect from a to c");
+        let (d_conn, e_conn) = bus
+            .connect(d.id(), e.id())
+            .expect("couldn't connect from d to e");
 
         // Ensure that `a_conn` or `d_conn` attempting to receive a message fails because they have no registered senders.
         assert_eq!(
