@@ -109,6 +109,45 @@ impl<M: BusMessage> MessageBus<M> {
         Ok((sender_connection, receiver_connection))
     }
 
+    pub async fn recv(
+        &self,
+        receiver_id: &ComponentId,
+    ) -> Result<(M, Option<oneshot::Sender<M>>), MessageBusError> {
+        let state = self
+            .state
+            .read()
+            .expect("MessageBus state lock was poisoned in recv()");
+        let receivers = state
+            .receivers
+            .get(receiver_id)
+            .ok_or(MessageBusError::NoSendersToReceiver(receiver_id.clone()))?;
+
+        let mut futures = FuturesUnordered::new();
+        for (sender_id, rx) in receivers {
+            futures.push(async {
+                let result = rx.recv().await;
+                (sender_id.clone(), result)
+            });
+        }
+
+        match futures.next().await {
+            None => panic!("ran out of futures to poll in recv()"),
+            Some(output) => {
+                let (sender_id, result) = output;
+                match result {
+                    Ok(message) => {
+                        tracing::trace!("{} => {}: {:?}", sender_id, receiver_id, message.request);
+                        Ok((message.request, message.response_tx))
+                    }
+                    Err(_) => Err(MessageBusError::Disconnected(
+                        sender_id,
+                        receiver_id.clone(),
+                    )),
+                }
+            }
+        }
+    }
+
     pub async fn request(&self, sender_id: &ComponentId, request: M) -> Result<M, MessageBusError> {
         let state = self
             .state
@@ -185,45 +224,6 @@ impl<M: BusMessage> MessageBus<M> {
             }
         }
         Ok(())
-    }
-
-    pub async fn recv(
-        &self,
-        receiver_id: &ComponentId,
-    ) -> Result<(M, Option<oneshot::Sender<M>>), MessageBusError> {
-        let state = self
-            .state
-            .read()
-            .expect("MessageBus state lock was poisoned in recv()");
-        let receivers = state
-            .receivers
-            .get(receiver_id)
-            .ok_or(MessageBusError::NoSendersToReceiver(receiver_id.clone()))?;
-
-        let mut futures = FuturesUnordered::new();
-        for (sender_id, rx) in receivers {
-            futures.push(async {
-                let result = rx.recv().await;
-                (sender_id.clone(), result)
-            });
-        }
-
-        match futures.next().await {
-            None => panic!("ran out of futures to poll in recv()"),
-            Some(output) => {
-                let (sender_id, result) = output;
-                match result {
-                    Ok(message) => {
-                        tracing::trace!("{} => {}: {:?}", sender_id, receiver_id, message.request);
-                        Ok((message.request, message.response_tx))
-                    }
-                    Err(_) => Err(MessageBusError::Disconnected(
-                        sender_id,
-                        receiver_id.clone(),
-                    )),
-                }
-            }
-        }
     }
 
     pub fn try_recv(
