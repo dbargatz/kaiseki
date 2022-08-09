@@ -1,9 +1,10 @@
+use futures::{stream::FuturesUnordered, StreamExt};
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
-use async_channel::{Receiver, Sender};
+use async_channel::{Receiver, Sender, TryRecvError};
 use thiserror::Error;
 
 use crate::component::{Component, ComponentId};
@@ -14,6 +15,8 @@ pub trait BusMessage: 'static + Send + Sync + Clone + fmt::Debug {}
 pub enum MessageBusError {
     #[error("sender {0} is disconnected from receiver {1}")]
     Disconnected(ComponentId, ComponentId),
+    #[error("no messages available for receiver {0}")]
+    NoMessagesAvailable(ComponentId),
     #[error("no receivers connected for sender {0}")]
     NoReceiversForSender(ComponentId),
     #[error("no senders connected for receiver {0}")]
@@ -100,9 +103,59 @@ impl<M: BusMessage> MessageBus<M> {
             .get(receiver_id)
             .ok_or(MessageBusError::NoSendersToReceiver(receiver_id.clone()))?;
 
-        // TODO: use a FuturesUnordered or similar here to wait on all at once, return first
-        let message = receivers[0].1.recv().await.unwrap();
-        Ok(message)
+        let mut futures = FuturesUnordered::new();
+        for (sender_id, rx) in receivers {
+            futures.push(async {
+                let result = rx.recv().await;
+                (sender_id.clone(), result)
+            });
+        }
+
+        match futures.next().await {
+            None => panic!("ran out of futures to poll in recv()"),
+            Some(output) => {
+                let (sender_id, result) = output;
+                match result {
+                    Ok(message) => {
+                        tracing::trace!("{} => {}: {:?}", sender_id, receiver_id, message);
+                        Ok(message)
+                    }
+                    Err(_) => Err(MessageBusError::Disconnected(
+                        sender_id,
+                        receiver_id.clone(),
+                    )),
+                }
+            }
+        }
+    }
+
+    pub fn try_recv(&self, receiver_id: &ComponentId) -> Result<M, MessageBusError> {
+        let state = self
+            .state
+            .read()
+            .expect("MessageBus state lock was poisoned in recv()");
+        let receivers = state
+            .receivers
+            .get(receiver_id)
+            .ok_or(MessageBusError::NoSendersToReceiver(receiver_id.clone()))?;
+
+        for (sender_id, rx) in receivers {
+            match rx.try_recv() {
+                Ok(message) => {
+                    tracing::trace!("{} => {}: {:?}", sender_id, receiver_id, message);
+                    return Ok(message);
+                }
+                Err(TryRecvError::Empty) => continue,
+                Err(TryRecvError::Closed) => {
+                    return Err(MessageBusError::Disconnected(
+                        sender_id.clone(),
+                        receiver_id.clone(),
+                    ))
+                }
+            }
+        }
+
+        Err(MessageBusError::NoMessagesAvailable(receiver_id.clone()))
     }
 }
 
@@ -193,6 +246,8 @@ mod tests {
     #[tokio::test]
     async fn send_recv_works() {
         let ([a, b, c, d, e], bus) = setup();
+
+        // Ensure that sending a message from `a` fails because it currently has no registered receivers.
         let a_msg = TestMessage {
             contents: String::from("message from a"),
         };
@@ -201,14 +256,43 @@ mod tests {
             Err(MessageBusError::NoReceiversForSender(a.id().clone()))
         );
 
+        // Connect the five components to the bus such that:
+        // `bus`
+        //   ├─ `a`
+        //   │   ├─ `b`
+        //   │   ├─ `c`
+        //   │
+        //   ├─ `d`
+        //       ├─ `e`
         bus.connect(&a, &b).expect("couldn't connect from a to b");
         bus.connect(&a, &c).expect("couldn't connect from a to c");
         bus.connect(&d, &e).expect("couldn't connect from d to e");
 
+        // Ensure that `a` or `d` attempting to receive a message fails because they have no registered senders.
+        assert_eq!(
+            a.bus.recv(a.id()).await,
+            Err(MessageBusError::NoSendersToReceiver(a.id().clone()))
+        );
+        assert_eq!(
+            d.bus.recv(d.id()).await,
+            Err(MessageBusError::NoSendersToReceiver(d.id().clone()))
+        );
+
+        // Ensure that a message sent from `a` is received by both `b` and `c`.
         a.bus.send(a.id(), a_msg.clone()).await.unwrap();
         let b_msg = b.bus.recv(b.id()).await.unwrap();
         assert_eq!(a_msg, b_msg);
         let c_msg = c.bus.recv(c.id()).await.unwrap();
         assert_eq!(a_msg, c_msg);
+
+        // Ensure that a message sent from `a` is NOT received by `d` or `e`.
+        assert_eq!(
+            d.bus.try_recv(d.id()),
+            Err(MessageBusError::NoSendersToReceiver(d.id().clone()))
+        );
+        assert_eq!(
+            e.bus.try_recv(e.id()),
+            Err(MessageBusError::NoMessagesAvailable(e.id().clone()))
+        );
     }
 }
