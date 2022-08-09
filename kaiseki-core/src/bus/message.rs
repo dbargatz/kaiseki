@@ -70,11 +70,12 @@ impl<M: BusMessage> MessageBus<M> {
         Ok(())
     }
 
-    pub async fn send(&self, sender_id: &ComponentId, message: M) -> Result<(), MessageBusError> {
+    pub async fn send(&self, sender: &impl Component, message: M) -> Result<(), MessageBusError> {
         let state = self
             .state
             .read()
             .expect("MessageBus state lock was poisoned in send()");
+        let sender_id = sender.id();
         let senders = state
             .senders
             .get(sender_id)
@@ -93,11 +94,12 @@ impl<M: BusMessage> MessageBus<M> {
         Ok(())
     }
 
-    pub async fn recv(&self, receiver_id: &ComponentId) -> Result<M, MessageBusError> {
+    pub async fn recv(&self, receiver: &impl Component) -> Result<M, MessageBusError> {
         let state = self
             .state
             .read()
             .expect("MessageBus state lock was poisoned in recv()");
+        let receiver_id = receiver.id();
         let receivers = state
             .receivers
             .get(receiver_id)
@@ -129,11 +131,12 @@ impl<M: BusMessage> MessageBus<M> {
         }
     }
 
-    pub fn try_recv(&self, receiver_id: &ComponentId) -> Result<M, MessageBusError> {
+    pub fn try_recv(&self, receiver: &impl Component) -> Result<M, MessageBusError> {
         let state = self
             .state
             .read()
             .expect("MessageBus state lock was poisoned in recv()");
+        let receiver_id = receiver.id();
         let receivers = state
             .receivers
             .get(receiver_id)
@@ -181,7 +184,6 @@ mod tests {
 
     struct TestComponent {
         id: ComponentId,
-        bus: MessageBus<TestMessage>,
     }
 
     impl Component for TestComponent {
@@ -191,10 +193,9 @@ mod tests {
     }
 
     impl TestComponent {
-        pub fn new(name: &str, bus: &MessageBus<TestMessage>) -> Self {
+        pub fn new(name: &str) -> Self {
             Self {
                 id: ComponentId::new(name),
-                bus: bus.clone(),
             }
         }
     }
@@ -202,11 +203,11 @@ mod tests {
     fn setup() -> ([TestComponent; 5], MessageBus<TestMessage>) {
         let bus = MessageBus::<TestMessage>::new("test bus");
         let components = [
-            TestComponent::new("a", &bus),
-            TestComponent::new("b", &bus),
-            TestComponent::new("c", &bus),
-            TestComponent::new("d", &bus),
-            TestComponent::new("e", &bus),
+            TestComponent::new("a"),
+            TestComponent::new("b"),
+            TestComponent::new("c"),
+            TestComponent::new("d"),
+            TestComponent::new("e"),
         ];
         (components, bus)
     }
@@ -252,7 +253,7 @@ mod tests {
             contents: String::from("message from a"),
         };
         assert_eq!(
-            a.bus.send(a.id(), a_msg.clone()).await,
+            bus.send(&a, a_msg.clone()).await,
             Err(MessageBusError::NoReceiversForSender(a.id().clone()))
         );
 
@@ -270,28 +271,28 @@ mod tests {
 
         // Ensure that `a` or `d` attempting to receive a message fails because they have no registered senders.
         assert_eq!(
-            a.bus.recv(a.id()).await,
+            bus.recv(&a).await,
             Err(MessageBusError::NoSendersToReceiver(a.id().clone()))
         );
         assert_eq!(
-            d.bus.recv(d.id()).await,
+            bus.recv(&d).await,
             Err(MessageBusError::NoSendersToReceiver(d.id().clone()))
         );
 
         // Ensure that a message sent from `a` is received by both `b` and `c`.
-        a.bus.send(a.id(), a_msg.clone()).await.unwrap();
-        let b_msg = b.bus.recv(b.id()).await.unwrap();
+        bus.send(&a, a_msg.clone()).await.unwrap();
+        let b_msg = bus.recv(&b).await.unwrap();
         assert_eq!(a_msg, b_msg);
-        let c_msg = c.bus.recv(c.id()).await.unwrap();
+        let c_msg = bus.recv(&c).await.unwrap();
         assert_eq!(a_msg, c_msg);
 
         // Ensure that a message sent from `a` is NOT received by `d` or `e`.
         assert_eq!(
-            d.bus.try_recv(d.id()),
+            bus.try_recv(&d),
             Err(MessageBusError::NoSendersToReceiver(d.id().clone()))
         );
         assert_eq!(
-            e.bus.try_recv(e.id()),
+            bus.try_recv(&e),
             Err(MessageBusError::NoMessagesAvailable(e.id().clone()))
         );
     }
