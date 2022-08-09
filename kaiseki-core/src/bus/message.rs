@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
 use async_channel::{Receiver, Sender};
@@ -28,7 +28,7 @@ struct MessageBusState<M: BusMessage> {
 #[derive(Clone)]
 pub struct MessageBus<M: BusMessage> {
     id: ComponentId,
-    state: Arc<Mutex<MessageBusState<M>>>,
+    state: Arc<RwLock<MessageBusState<M>>>,
 }
 
 impl<M: BusMessage> Component for MessageBus<M> {
@@ -45,7 +45,7 @@ impl<M: BusMessage> MessageBus<M> {
         };
         Self {
             id: ComponentId::new(name),
-            state: Arc::new(Mutex::new(state)),
+            state: Arc::new(RwLock::new(state)),
         }
     }
 
@@ -57,7 +57,7 @@ impl<M: BusMessage> MessageBus<M> {
         {
             let mut state = self
                 .state
-                .lock()
+                .write()
                 .expect("MessageBus state lock was poisoned");
             let receiver_entry = state.receivers.entry(receiver_id.clone()).or_default();
             receiver_entry.push((sender_id.clone(), rx_receiver_from_sender));
@@ -70,7 +70,7 @@ impl<M: BusMessage> MessageBus<M> {
     pub async fn send(&self, sender_id: &ComponentId, message: M) -> Result<(), MessageBusError> {
         let state = self
             .state
-            .lock()
+            .read()
             .expect("MessageBus state lock was poisoned in send()");
         let senders = state
             .senders
@@ -93,7 +93,7 @@ impl<M: BusMessage> MessageBus<M> {
     pub async fn recv(&self, receiver_id: &ComponentId) -> Result<M, MessageBusError> {
         let state = self
             .state
-            .lock()
+            .read()
             .expect("MessageBus state lock was poisoned in recv()");
         let receivers = state
             .receivers
@@ -168,7 +168,7 @@ mod tests {
         let ([a, b, _, _, _], bus) = setup();
         bus.connect(&a, &b).expect("couldn't connect from a to b");
 
-        let state = bus.state.lock().unwrap();
+        let state = bus.state.read().unwrap();
         let sender_value = state
             .senders
             .get(a.id())
