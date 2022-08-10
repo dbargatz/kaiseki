@@ -54,7 +54,7 @@ impl Chip8Machine {
 
         let cpu = Chip8CPU::new(&clock_bus, &display_bus, &memory_bus, 0x200);
         let display = MonochromeDisplay::new(&display_bus, &memory_bus);
-        let ram = RAM::new(&memory_bus);
+        let ram = RAM::new();
         let osc = Oscillator::new(&clock_bus, 500);
 
         let (_, _) = clock_bus.connect(osc.id(), cpu.id()).unwrap();

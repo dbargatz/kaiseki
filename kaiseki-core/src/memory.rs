@@ -39,7 +39,7 @@ impl<const N: usize> AddressableComponent for RAM<N> {
 }
 
 impl<const N: usize> RAM<N> {
-    pub fn new(memory_bus: &MemoryBus) -> Self {
+    pub fn new() -> Self {
         let id = ComponentId::new("RAM");
         RAM {
             id,

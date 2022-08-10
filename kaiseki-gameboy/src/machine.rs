@@ -47,7 +47,7 @@ impl GameboyMachine {
         let memory_bus = MemoryBus::new("memory bus");
 
         let cpu = SM83Cpu::new(&clock_bus, &memory_bus);
-        let ram = RAM::new(&memory_bus);
+        let ram = RAM::new();
         let osc = Oscillator::new(&clock_bus, 4_000_000);
 
         clock_bus.connect(osc.id(), cpu.id()).unwrap();
