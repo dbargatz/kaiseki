@@ -1,8 +1,6 @@
-use std::{
-    fmt,
-    ops::Range,
-    sync::{Arc, RwLock},
-};
+use std::fmt;
+use std::ops::Range;
+use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
 use bytes::Bytes;
@@ -21,20 +19,8 @@ pub enum AddressableBusError {
     ComponentAlreadyMappedAtAddress(ComponentId, usize),
 }
 
-#[derive(Clone)]
-struct WrappedComponent {
-    component: Arc<dyn AddressableComponent>,
-}
-
-impl PartialEq for WrappedComponent {
-    fn eq(&self, other: &Self) -> bool {
-        self.component.id() == other.component.id()
-    }
-}
-impl Eq for WrappedComponent {}
-
 struct AddressableBusState {
-    mappings: RangeMap<usize, WrappedComponent>,
+    mappings: RangeMap<usize, Arc<dyn AddressableComponent>>,
 }
 
 impl AddressableBusState {
@@ -81,32 +67,37 @@ impl AddressableBus {
             start: address,
             end: address + length,
         };
-        let wrapper = WrappedComponent {
-            component: Arc::new(component),
-        };
         {
             let mut state = self.state.write().unwrap();
-            state.mappings.insert(range, wrapper);
+            state.mappings.insert(range, Arc::new(component));
+            for (range, component) in state.mappings.iter() {
+                tracing::info!(
+                    "\t0x{:04X} - 0x{:04X}: {}",
+                    range.start,
+                    range.end,
+                    component.id()
+                );
+            }
         }
         Ok(())
     }
 
     pub fn read(&self, address: usize, length: usize) -> Result<Bytes> {
         let state = self.state.read().unwrap();
-        let wrapper = state
+        let component = state
             .mappings
             .get(&address)
             .ok_or(AddressableBusError::NoComponentMappedAtAddress(address))?;
-        Ok(wrapper.component.read(address, length)?)
+        Ok(component.read(address, length)?)
     }
 
     pub fn write(&self, address: usize, data: &[u8]) -> Result<()> {
         let state = self.state.read().unwrap();
-        let wrapper = state
+        let component = state
             .mappings
             .get(&address)
             .ok_or(AddressableBusError::NoComponentMappedAtAddress(address))?;
-        wrapper.component.write(address, data)?;
+        component.write(address, data)?;
         Ok(())
     }
 }
@@ -119,9 +110,7 @@ mod tests {
     use bytes::{BufMut, Bytes, BytesMut};
     use rand::Rng;
 
-    use super::{
-        AddressableBus, AddressableBusError, AddressableComponent, Component, ComponentId,
-    };
+    use super::{AddressableBus, AddressableComponent, Component, ComponentId};
 
     #[derive(Clone)]
     struct TestComponent {

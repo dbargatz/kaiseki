@@ -39,10 +39,24 @@ pub trait Component: 'static + Send + Sync {
     fn id(&self) -> &ComponentId;
 }
 
+impl PartialEq for dyn Component + '_ {
+    fn eq(&self, other: &Self) -> bool {
+        self.id() == other.id()
+    }
+}
+impl Eq for dyn Component + '_ {}
+
 pub trait AddressableComponent: Component {
     fn read(&self, address: usize, length: usize) -> Result<Bytes>;
     fn write(&self, address: usize, data: &[u8]) -> Result<()>;
 }
+
+impl PartialEq for dyn AddressableComponent + '_ {
+    fn eq(&self, other: &Self) -> bool {
+        self.id() == other.id()
+    }
+}
+impl Eq for dyn AddressableComponent + '_ {}
 
 #[async_trait]
 pub trait ExecutableComponent: Component {
