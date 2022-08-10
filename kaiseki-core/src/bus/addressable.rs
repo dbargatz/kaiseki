@@ -76,7 +76,6 @@ impl AddressableBus {
         component: impl AddressableComponent,
         address: usize,
         length: usize,
-        _readonly: bool,
     ) -> Result<(), AddressableBusError> {
         let range = Range {
             start: address,
@@ -183,9 +182,9 @@ mod tests {
         let ([a, b, c], bus) = setup();
         assert!(!bus.read(0x0000, 4).is_ok());
 
-        bus.map(a, 0x0000, 0x00FF, false).unwrap();
-        bus.map(b, 0x0100, 0x00FF, true).unwrap();
-        bus.map(c, 0x0200, 0x00FF, false).unwrap();
+        bus.map(a, 0x0000, 0x00FF).unwrap();
+        bus.map(b, 0x0100, 0x00FF).unwrap();
+        bus.map(c, 0x0200, 0x00FF).unwrap();
 
         assert!(bus.read(0x0000, 4).is_ok());
     }
