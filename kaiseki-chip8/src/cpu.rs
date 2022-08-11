@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use bytes::Buf;
 
 use kaiseki_core::{
-    Component, ComponentId, DisplayBus, ExecutableComponent, MemoryBus, OscillatorBus,
+    AddressableBus, Component, ComponentId, DisplayBus, ExecutableComponent, OscillatorBus,
     OscillatorBusMessage,
 };
 
@@ -22,7 +22,7 @@ pub struct Chip8CPU {
     id: ComponentId,
     clock_bus: OscillatorBus,
     display_bus: DisplayBus,
-    memory_bus: MemoryBus,
+    memory_bus: AddressableBus,
     regs: Chip8Registers,
     stack: Chip8Stack,
 }
@@ -62,7 +62,7 @@ impl Chip8CPU {
     pub fn new(
         clock_bus: &OscillatorBus,
         display_bus: &DisplayBus,
-        memory_bus: &MemoryBus,
+        memory_bus: &AddressableBus,
         initial_pc: u16,
     ) -> Self {
         let id = ComponentId::new("Chip-8 CPU");

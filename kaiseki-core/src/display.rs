@@ -1,9 +1,8 @@
 use anyhow::Result;
 use async_trait::async_trait;
 
-use crate::bus::{BusMessage, MessageBus, MessageBusError};
+use crate::bus::{AddressableBus, BusMessage, MessageBus, MessageBusError};
 use crate::component::{Component, ComponentId, ExecutableComponent};
-use crate::memory::MemoryBus;
 
 #[derive(Clone, Debug)]
 pub enum DisplayBusMessage {
@@ -60,7 +59,7 @@ impl DisplayBus {
 pub struct MonochromeDisplay<const N: usize, const W: usize, const H: usize> {
     id: ComponentId,
     display_bus: DisplayBus,
-    memory_bus: MemoryBus,
+    memory_bus: AddressableBus,
     pixels: [u8; N],
 }
 
@@ -132,7 +131,7 @@ impl<const N: usize, const W: usize, const H: usize> ExecutableComponent
 }
 
 impl<const N: usize, const W: usize, const H: usize> MonochromeDisplay<N, W, H> {
-    pub fn new(display_bus: &DisplayBus, memory_bus: &MemoryBus) -> Self {
+    pub fn new(display_bus: &DisplayBus, memory_bus: &AddressableBus) -> Self {
         MonochromeDisplay {
             id: ComponentId::new("Monochrome Display"),
             display_bus: display_bus.clone(),

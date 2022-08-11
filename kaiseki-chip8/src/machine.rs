@@ -3,8 +3,8 @@ use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, StreamExt};
 
 use kaiseki_core::{
-    AddressableComponent, Component, ComponentId, DisplayBus, ExecutableComponent, Machine,
-    MemoryBus, MonochromeDisplay, Oscillator, OscillatorBus, RAM,
+    AddressableBus, AddressableComponent, Component, ComponentId, DisplayBus, ExecutableComponent,
+    Machine, MonochromeDisplay, Oscillator, OscillatorBus, RAM,
 };
 
 use crate::cpu::Chip8CPU;
@@ -14,7 +14,7 @@ pub struct Chip8Machine {
     id: ComponentId,
     clock_bus: OscillatorBus,
     display_bus: DisplayBus,
-    memory_bus: MemoryBus,
+    memory_bus: AddressableBus,
     cpu: Chip8CPU,
     display: MonochromeDisplay<2048, 64, 32>,
     ram: RAM<4096>,
@@ -50,11 +50,11 @@ impl Chip8Machine {
     pub async fn new(program: &[u8]) -> Result<Chip8Machine> {
         let clock_bus = OscillatorBus::new("clock bus");
         let display_bus = DisplayBus::new("display bus");
-        let memory_bus = MemoryBus::new("memory bus");
+        let memory_bus = AddressableBus::new("memory bus");
 
         let cpu = Chip8CPU::new(&clock_bus, &display_bus, &memory_bus, 0x200);
         let display = MonochromeDisplay::new(&display_bus, &memory_bus);
-        let ram = RAM::new();
+        let ram = RAM::new("RAM");
         let osc = Oscillator::new(&clock_bus, 500);
 
         let (_, _) = clock_bus.connect(osc.id(), cpu.id()).unwrap();

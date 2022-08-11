@@ -3,14 +3,15 @@ use async_trait::async_trait;
 use bytes::Buf;
 
 use kaiseki_core::{
-    Component, ComponentId, ExecutableComponent, MemoryBus, OscillatorBus, OscillatorBusMessage,
+    AddressableBus, Component, ComponentId, ExecutableComponent, OscillatorBus,
+    OscillatorBusMessage,
 };
 
 #[derive(Debug)]
 pub struct SM83Cpu {
     id: ComponentId,
     clock_bus: OscillatorBus,
-    memory_bus: MemoryBus,
+    memory_bus: AddressableBus,
 }
 
 impl Component for SM83Cpu {
@@ -45,7 +46,7 @@ impl ExecutableComponent for SM83Cpu {
 }
 
 impl SM83Cpu {
-    pub fn new(clock_bus: &OscillatorBus, memory_bus: &MemoryBus) -> Self {
+    pub fn new(clock_bus: &OscillatorBus, memory_bus: &AddressableBus) -> Self {
         let id = ComponentId::new("SM83 CPU");
         SM83Cpu {
             id,
