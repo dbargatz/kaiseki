@@ -310,5 +310,20 @@ mod tests {
                 a_range.clone()
             )
         );
+
+        // Attempt to map a component that is exactly `a`'s range.
+        let b_range = 0x0100..=0x01FF;
+        let err = bus
+            .map(b_range.clone(), b.clone())
+            .expect_err("map() should have failed");
+        assert_eq!(
+            err,
+            AddressableBusError::MappingConflict(
+                b_id.clone(),
+                b_range,
+                a_id.clone(),
+                a_range.clone()
+            )
+        );
     }
 }
