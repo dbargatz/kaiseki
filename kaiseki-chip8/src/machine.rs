@@ -4,7 +4,7 @@ use futures::{stream::FuturesUnordered, StreamExt};
 
 use kaiseki_core::{
     AddressableBus, AddressableComponent, Component, ComponentId, DisplayBus, ExecutableComponent,
-    Machine, MonochromeDisplay, Oscillator, OscillatorBus, RAM,
+    Machine, MonochromeDisplay, Oscillator, OscillatorBus, RAM, ROM,
 };
 
 use crate::cpu::Chip8CPU;
@@ -17,7 +17,8 @@ pub struct Chip8Machine {
     memory_bus: AddressableBus,
     cpu: Chip8CPU,
     display: MonochromeDisplay<2048, 64, 32>,
-    ram: RAM<4096>,
+    interpreter_rom: ROM<0x200>,
+    ram: RAM<0xE00>,
     system_clock: Oscillator,
 }
 
@@ -57,9 +58,16 @@ impl Chip8Machine {
         let ram = RAM::new("RAM");
         let osc = Oscillator::new(&clock_bus, 500);
 
+        let interpreter_rom = ROM::new("Interpreter ROM", &[]);
+
         let (_, _) = clock_bus.connect(osc.id(), cpu.id()).unwrap();
         let (_, _) = display_bus.connect(cpu.id(), display.id()).unwrap();
-        memory_bus.map(0x0000..=0x0FFF, ram.clone()).unwrap();
+
+        memory_bus
+            .map(0x0000..=0x01FF, interpreter_rom.clone())
+            .unwrap();
+        memory_bus.map(0x0200..=0x0FFF, ram.clone()).unwrap();
+
         ram.write(0x200, program).unwrap();
 
         let machine = Chip8Machine {
@@ -69,6 +77,7 @@ impl Chip8Machine {
             memory_bus,
             cpu,
             display,
+            interpreter_rom,
             ram,
             system_clock: osc,
         };

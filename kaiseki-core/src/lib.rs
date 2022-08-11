@@ -13,4 +13,4 @@ pub use crate::component::{AddressableComponent, Component, ComponentId, Executa
 pub use crate::display::{DisplayBus, DisplayBusMessage, MonochromeDisplay};
 pub use crate::machine::Machine;
 pub use crate::oscillator::{Oscillator, OscillatorBus, OscillatorBusMessage};
-pub use crate::storage::RAM;
+pub use crate::storage::{RAM, ROM};
