@@ -1,10 +1,10 @@
 use std::fmt;
-use std::ops::Range;
+use std::ops::RangeInclusive;
 use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
 use bytes::Bytes;
-use rangemap::RangeMap;
+use rangemap::RangeInclusiveMap;
 use thiserror::Error;
 
 use crate::component::{AddressableComponent, Component, ComponentId};
@@ -20,17 +20,22 @@ pub enum AddressableBusError {
     #[error(
         "cannot map component {0} to {1:?}; conflicts with component {2} already mapped at {3:?}"
     )]
-    MappingConflict(ComponentId, Range<usize>, ComponentId, Range<usize>),
+    MappingConflict(
+        ComponentId,
+        RangeInclusive<usize>,
+        ComponentId,
+        RangeInclusive<usize>,
+    ),
 }
 
 struct AddressableBusState {
-    mappings: RangeMap<usize, Arc<dyn AddressableComponent>>,
+    mappings: RangeInclusiveMap<usize, Arc<dyn AddressableComponent>>,
 }
 
 impl AddressableBusState {
     pub fn new() -> Self {
         Self {
-            mappings: RangeMap::new(),
+            mappings: RangeInclusiveMap::new(),
         }
     }
 }
@@ -54,8 +59,8 @@ impl fmt::Debug for AddressableBus {
         for (range, component) in state.mappings.iter() {
             f.write_fmt(format_args!(
                 "\t0x{:04X} - 0x{:04X}: {}\n",
-                range.start,
-                range.end - 1,
+                range.start(),
+                range.end(),
                 component.id()
             ))?;
         }
@@ -79,7 +84,7 @@ impl AddressableBus {
 
     pub fn map(
         &self,
-        address_range: Range<usize>,
+        address_range: RangeInclusive<usize>,
         component: impl AddressableComponent,
     ) -> Result<(), AddressableBusError> {
         let mut state = self.state.write().unwrap();
@@ -92,17 +97,17 @@ impl AddressableBus {
             // range end, the new mapping cannot overlap with the existing mapping, or
             // any following mapping. As a result, if we encounter this condition, we
             // can safely break out of the overlap-checking loop early.
-            if existing_range.start > address_range.end {
+            if existing_range.start() > address_range.end() {
                 break;
             }
 
             // Determine if the start or end address of the existing or new mappings
             // overlap with each other at all. If so, we have a mapping conflict and
             // need to return an error.
-            if existing_range.contains(&address_range.start)
-                || existing_range.contains(&address_range.end)
-                || address_range.contains(&existing_range.start)
-                || address_range.contains(&existing_range.end)
+            if existing_range.contains(&address_range.start())
+                || existing_range.contains(&address_range.end())
+                || address_range.contains(&existing_range.start())
+                || address_range.contains(&existing_range.end())
             {
                 return Err(AddressableBusError::MappingConflict(
                     component.id().clone(),
@@ -234,60 +239,76 @@ mod tests {
             Err(AddressableBusError::NoComponentMappedAtAddress(0x0000))
         );
 
-        bus.map(0x0000..0x1000, a.clone()).unwrap();
+        bus.map(0x0000..=0x0FFF, a.clone()).unwrap();
         assert!(bus.read(0x0000, 4).is_ok());
     }
 
     #[test]
     fn map_prevents_conflicts() {
         let ([a, b, _], bus) = setup();
-        let a_range = 0x0100..0x0200;
+        let a_range = 0x0100..=0x01FF;
         let a_id = a.id();
         let b_id = b.id();
         bus.map(a_range.clone(), a.clone()).unwrap();
 
         // Attempt to map a component that overlaps `a`'s range by a single byte at the start.
-        let a_range = 0x0100..0x0200;
-        let b_range = 0x0000..0x0101;
+        let b_range = 0x0000..=0x0100;
         let err = bus
             .map(b_range.clone(), b.clone())
             .expect_err("map() should have failed");
         assert_eq!(
             err,
-            AddressableBusError::MappingConflict(b_id.clone(), b_range, a_id.clone(), a_range)
+            AddressableBusError::MappingConflict(
+                b_id.clone(),
+                b_range,
+                a_id.clone(),
+                a_range.clone()
+            )
         );
 
         // Attempt to map a component that overlaps `a`'s range by a single byte at the end.
-        let a_range = 0x0100..0x0200;
-        let b_range = 0x01FF..0x0300;
+        let b_range = 0x01FF..=0x02FF;
         let err = bus
             .map(b_range.clone(), b.clone())
             .expect_err("map() should have failed");
         assert_eq!(
             err,
-            AddressableBusError::MappingConflict(b_id.clone(), b_range, a_id.clone(), a_range)
+            AddressableBusError::MappingConflict(
+                b_id.clone(),
+                b_range,
+                a_id.clone(),
+                a_range.clone()
+            )
         );
 
         // Attempt to map a component that completely contains `a`'s range.
-        let a_range = 0x0100..0x0200;
-        let b_range = 0x0000..0x02FF;
+        let b_range = 0x0000..=0x02FF;
         let err = bus
             .map(b_range.clone(), b.clone())
             .expect_err("map() should have failed");
         assert_eq!(
             err,
-            AddressableBusError::MappingConflict(b_id.clone(), b_range, a_id.clone(), a_range)
+            AddressableBusError::MappingConflict(
+                b_id.clone(),
+                b_range,
+                a_id.clone(),
+                a_range.clone()
+            )
         );
 
         // Attempt to map a component that is completely contained within `a`'s range.
-        let a_range = 0x0100..0x0200;
-        let b_range = 0x0180..0x0190;
+        let b_range = 0x0180..=0x018F;
         let err = bus
             .map(b_range.clone(), b.clone())
             .expect_err("map() should have failed");
         assert_eq!(
             err,
-            AddressableBusError::MappingConflict(b_id.clone(), b_range, a_id.clone(), a_range)
+            AddressableBusError::MappingConflict(
+                b_id.clone(),
+                b_range,
+                a_id.clone(),
+                a_range.clone()
+            )
         );
     }
 }

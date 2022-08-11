@@ -59,7 +59,7 @@ impl Chip8Machine {
 
         let (_, _) = clock_bus.connect(osc.id(), cpu.id()).unwrap();
         let (_, _) = display_bus.connect(cpu.id(), display.id()).unwrap();
-        memory_bus.map(0x0000..0x1000, ram.clone()).unwrap();
+        memory_bus.map(0x0000..=0x0FFF, ram.clone()).unwrap();
         ram.write(0x200, program).unwrap();
 
         let machine = Chip8Machine {

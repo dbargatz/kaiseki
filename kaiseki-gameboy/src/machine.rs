@@ -51,7 +51,7 @@ impl GameboyMachine {
         let osc = Oscillator::new(&clock_bus, 4_000_000);
 
         clock_bus.connect(osc.id(), cpu.id()).unwrap();
-        memory_bus.map(0x0000..0x1000, ram.clone()).unwrap();
+        memory_bus.map(0x0000..=0x0FFF, ram.clone()).unwrap();
 
         let machine = GameboyMachine {
             id: ComponentId::new("Gameboy Machine"),
