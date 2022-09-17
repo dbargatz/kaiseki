@@ -40,10 +40,14 @@ impl ExecutableComponent for GameboyMachine {
     }
 }
 
-impl Machine for GameboyMachine {}
+impl Machine for GameboyMachine {
+    fn load(&self, _file: &str) -> Result<()> {
+        todo!()
+    }
+}
 
 impl GameboyMachine {
-    pub async fn new() -> Result<GameboyMachine> {
+    pub fn new() -> Result<GameboyMachine> {
         let clock_bus = OscillatorBus::new("clock bus");
         let memory_bus = AddressableBus::new("memory bus");
 
@@ -51,8 +55,8 @@ impl GameboyMachine {
         let ram = RAM::new("RAM");
         let osc = Oscillator::new(&clock_bus, 4_000_000);
 
-        clock_bus.connect(osc.id(), cpu.id()).unwrap();
-        memory_bus.map(0x0000..=0x0FFF, ram.clone()).unwrap();
+        clock_bus.connect(osc.id(), cpu.id())?;
+        memory_bus.map(0x0000..=0x0FFF, ram.clone())?;
 
         let machine = GameboyMachine {
             id: ComponentId::new("Gameboy Machine"),

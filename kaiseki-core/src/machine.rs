@@ -1,3 +1,7 @@
-use crate::component::Component;
+use anyhow::Result;
 
-pub trait Machine: Component {}
+use crate::component::ExecutableComponent;
+
+pub trait Machine: ExecutableComponent {
+    fn load(&self, file: &str) -> Result<()>;
+}

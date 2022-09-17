@@ -1,3 +1,5 @@
+use std::fs;
+
 use anyhow::Result;
 use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, StreamExt};
@@ -45,10 +47,17 @@ impl ExecutableComponent for Chip8Machine {
     }
 }
 
-impl Machine for Chip8Machine {}
+impl Machine for Chip8Machine {
+    fn load(&self, file: &str) -> Result<()> {
+        tracing::info!("loading Chip-8 program");
+        let program = fs::read(file)?;
+        self.ram.write(0x200, &program)?;
+        Ok(())
+    }
+}
 
 impl Chip8Machine {
-    pub async fn new(program: &[u8]) -> Result<Chip8Machine> {
+    pub fn new() -> Result<Chip8Machine> {
         let clock_bus = OscillatorBus::new("clock bus");
         let display_bus = DisplayBus::new("display bus");
         let memory_bus = AddressableBus::new("memory bus");
@@ -60,15 +69,11 @@ impl Chip8Machine {
 
         let interpreter_rom = ROM::new("Interpreter ROM", &[]);
 
-        let (_, _) = clock_bus.connect(osc.id(), cpu.id()).unwrap();
-        let (_, _) = display_bus.connect(cpu.id(), display.id()).unwrap();
+        let (_, _) = clock_bus.connect(osc.id(), cpu.id())?;
+        let (_, _) = display_bus.connect(cpu.id(), display.id())?;
 
-        memory_bus
-            .map(0x0000..=0x01FF, interpreter_rom.clone())
-            .unwrap();
-        memory_bus.map(0x0200..=0x0FFF, ram.clone()).unwrap();
-
-        ram.write(0x200, program).unwrap();
+        memory_bus.map(0x0000..=0x01FF, interpreter_rom.clone())?;
+        memory_bus.map(0x0200..=0x0FFF, ram.clone())?;
 
         let machine = Chip8Machine {
             id: ComponentId::new("Chip-8 Machine"),

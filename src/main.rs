@@ -1,10 +1,8 @@
-use std::fs;
-
 use anyhow::Result;
 use clap::{ArgEnum, Parser};
 
 use kaiseki_chip8::machine::Chip8Machine;
-use kaiseki_core::ExecutableComponent;
+use kaiseki_core::Guest;
 use kaiseki_gameboy::machine::GameboyMachine;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ArgEnum)]
@@ -55,22 +53,21 @@ fn main() -> Result<()> {
 
     let args = Args::parse();
     let machine_type = args.machine;
+    let guest = match machine_type {
+        SupportedMachines::Chip8 => {
+            let machine = Chip8Machine::new()?;
+            Guest::create(machine, "kaiseki-chip8/assets/Chip8 Picture.ch8")
+        }
+        SupportedMachines::Gameboy => {
+            let machine = GameboyMachine::new()?;
+            Guest::create(machine, "")
+        }
+    };
+
     let emulator_thread = std::thread::spawn(move || {
         let runtime = create_tokio_runtime();
         runtime.block_on(async {
-            match machine_type {
-                SupportedMachines::Chip8 => {
-                    tracing::info!("loading Chip-8 program");
-                    let program = fs::read("kaiseki-chip8/assets/Chip8 Picture.ch8").unwrap();
-                    let mut machine = Chip8Machine::new(&program).await.unwrap();
-                    machine.start().await;
-                }
-                SupportedMachines::Gameboy => {
-                    tracing::info!("loading gameboy program");
-                    let mut machine = GameboyMachine::new().await.unwrap();
-                    machine.start().await;
-                }
-            }
+            guest.start().await.unwrap();
         });
     });
     let app = KaisekiApp { args };
