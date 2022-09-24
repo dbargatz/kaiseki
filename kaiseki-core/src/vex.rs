@@ -4,12 +4,12 @@ use anyhow::Result;
 
 use crate::machine::Machine;
 
-pub struct Guest {
+pub struct Vex {
     command: String,
     machine: Arc<Mutex<dyn Machine>>,
 }
 
-impl Guest {
+impl Vex {
     pub fn create(machine: impl Machine, command: &str) -> Self {
         Self {
             command: String::from(command),

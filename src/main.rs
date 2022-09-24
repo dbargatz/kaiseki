@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::{ArgEnum, Parser};
 
 use kaiseki_chip8::machine::Chip8Machine;
-use kaiseki_core::Guest;
+use kaiseki_core::Vex;
 use kaiseki_gameboy::machine::GameboyMachine;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ArgEnum)]
@@ -56,11 +56,11 @@ fn main() -> Result<()> {
     let guest = match machine_type {
         SupportedMachines::Chip8 => {
             let machine = Chip8Machine::new()?;
-            Guest::create(machine, "kaiseki-chip8/assets/Chip8 Picture.ch8")
+            Vex::create(machine, "kaiseki-chip8/assets/Chip8 Picture.ch8")
         }
         SupportedMachines::Gameboy => {
             let machine = GameboyMachine::new()?;
-            Guest::create(machine, "")
+            Vex::create(machine, "")
         }
     };
 
