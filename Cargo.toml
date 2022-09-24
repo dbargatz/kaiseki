@@ -5,6 +5,7 @@ edition = "2021"
 
 [workspace]
 members = [
+    "kaiseki-backend-virtualization",
     "kaiseki-chip8",
     "kaiseki-core",
 ]
@@ -18,6 +19,7 @@ console-subscriber = { version = "0.1" }
 eframe = { version = "0.18" }
 egui = { version = "0.18" }
 egui-winit = { version = "0.18" }
+kaiseki-backend-virtualization = { path = "kaiseki-backend-virtualization" }
 kaiseki-chip8 = { path = "kaiseki-chip8" }
 kaiseki-core = { path = "kaiseki-core" }
 thiserror = { version = "1" }
