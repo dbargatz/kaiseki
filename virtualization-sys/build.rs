@@ -92,7 +92,7 @@ fn build(sdk_path: Option<&str>, target: &str) {
 
     // Get the cargo out directory.
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("env variable OUT_DIR not found"));
-    let mut file = fs::File::create(out_dir.join("virtualization_bindings.rs"))
+    let mut file = fs::File::create(out_dir.join("bindings.rs"))
         .expect("could not open bindings file");
 
     // Write them to the crate root.

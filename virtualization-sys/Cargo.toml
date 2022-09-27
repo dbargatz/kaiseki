@@ -1,13 +1,11 @@
 [package]
-name = "kaiseki-backend-virtualization"
+name = "virtualization-sys"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = { version = "1" }
-block = "0.1.6"
-objc = "0.2.7"
-thiserror = { version = "1" }
+block = "0.1"
+objc = "0.2"
 
 [build-dependencies]
 bindgen = { version = "0.60" }
