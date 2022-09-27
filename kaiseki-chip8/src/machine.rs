@@ -14,11 +14,15 @@ use crate::cpu::Chip8CPU;
 #[derive(Debug)]
 pub struct Chip8Machine {
     id: ComponentId,
+    #[allow(dead_code)]
     clock_bus: OscillatorBus,
+    #[allow(dead_code)]
     display_bus: DisplayBus,
+    #[allow(dead_code)]
     memory_bus: AddressableBus,
     cpu: Chip8CPU,
     display: MonochromeDisplay<2048, 64, 32>,
+    #[allow(dead_code)]
     interpreter_rom: ROM<0x200>,
     ram: RAM<0xE00>,
     system_clock: Oscillator,
