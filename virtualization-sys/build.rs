@@ -6,7 +6,7 @@ use std::path::PathBuf;
 fn sdk_path(target: &str) -> Result<String, std::io::Error> {
     use std::process::Command;
     let sdk = if vec!["x86_64-apple-darwin", "aarch64-apple-darwin"].contains(&target) {
-        "macosx12.1"
+        "macosx12.3"
     } else {
         unreachable!();
     };
@@ -93,8 +93,8 @@ fn build(sdk_path: Option<&str>, target: &str) {
 
     // Get the cargo out directory.
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("env variable OUT_DIR not found"));
-    let mut file = fs::File::create(out_dir.join("bindings.rs"))
-        .expect("could not open bindings file");
+    let mut file =
+        fs::File::create(out_dir.join("bindings.rs")).expect("could not open bindings file");
 
     // Write them to the crate root.
     file.write_all(bindings.as_bytes())
