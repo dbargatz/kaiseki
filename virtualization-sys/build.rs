@@ -1,4 +1,4 @@
-use std::env;
+//use std::env;
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
@@ -28,6 +28,8 @@ fn build(sdk_path: Option<&str>, target: &str) {
     //
     // Only link to each framework and include their headers if their features are enabled and they
     // are available on the target os.
+    println!("cargo:rerun-if-changed=src/lib.rs");
+    println!("cargo:rerun-if-changed=src/bindings.rs");
     println!("cargo:rerun-if-env-changed=BINDGEN_EXTRA_CLANG_ARGS");
     println!("cargo:rustc-link-lib=framework=Foundation");
     println!("cargo:rustc-link-lib=framework=Virtualization");
@@ -53,17 +55,23 @@ fn build(sdk_path: Option<&str>, target: &str) {
         .clang_args(&clang_args)
         .layout_tests(true)
         .rustfmt_bindings(true)
-        // time.h as has a variable called timezone that conflicts with some of the objective-c
-        // calls from NSCalendar.h in the Foundation framework. This removes that one variable.
-        .blocklist_item("timezone")
-        .blocklist_type("id")
-        .blocklist_type("NSImage_")
-        .blocklist_type("NSScreen_")
-        .opaque_type("FndrOpaqueInfo")
-        .opaque_type("HFSCatalogFolder")
-        .opaque_type("HFSPlusCatalogFolder")
-        .opaque_type("HFSCatalogFile")
-        .opaque_type("HFSPlusCatalogFile")
+        .allowlist_type("[I|P|]VZ.*")
+        .allowlist_type("[I|P|]NSAccessibility")
+        .allowlist_type("[I|P|]NSActionCell")
+        .allowlist_type("[I|P|]NSCell")
+        .allowlist_type("[I|P|]NSControl")
+        .allowlist_type("[I|P|]NSError")
+        .allowlist_type("[I|P|]NSMutableAttributedString")
+        .allowlist_type("[I|P|]NSObject")
+        .allowlist_type("[I|P|]NSPanel")
+        .allowlist_type("[I|P|]NSResponder")
+        .allowlist_type("[I|P|]NSString")
+        .allowlist_type("[I|P|]NSURL")
+        .allowlist_type("[I|P|]NSValue")
+        .allowlist_type("[I|P|]NSView")
+        .allowlist_type("NSString_NSStringExtensionMethods")
+        .allowlist_type("VZVirtualMachineConfiguration_VZVirtualMachineConfigurationValidation")
+        .allowlist_var("NSUTF8StringEncoding")
         .header_contents(
             "Virtualization.h",
             "#include<Virtualization/Virtualization.h>",
@@ -92,7 +100,8 @@ fn build(sdk_path: Option<&str>, target: &str) {
         .replace("msg_send ! (* self , selectRow : row byExtendingSelection : extend)","msg_send ! (* self , selectRow : row byExtendingSelection : extend_)");
 
     // Get the cargo out directory.
-    let out_dir = PathBuf::from(env::var("OUT_DIR").expect("env variable OUT_DIR not found"));
+    // let out_dir = PathBuf::from(env::var("OUT_DIR").expect("env variable OUT_DIR not found"));
+    let out_dir = PathBuf::from("src/");
     let mut file =
         fs::File::create(out_dir.join("bindings.rs")).expect("could not open bindings file");
 
