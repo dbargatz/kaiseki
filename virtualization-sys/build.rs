@@ -1,7 +1,4 @@
-//use std::env;
-use std::fs;
-use std::io::Write;
-use std::path::PathBuf;
+use std::path::Path;
 
 fn sdk_path(target: &str) -> Result<String, std::io::Error> {
     use std::process::Command;
@@ -28,8 +25,6 @@ fn build(sdk_path: Option<&str>, target: &str) {
     //
     // Only link to each framework and include their headers if their features are enabled and they
     // are available on the target os.
-    println!("cargo:rerun-if-changed=src/lib.rs");
-    println!("cargo:rerun-if-changed=src/bindings.rs");
     println!("cargo:rerun-if-env-changed=BINDGEN_EXTRA_CLANG_ARGS");
     println!("cargo:rustc-link-lib=framework=Foundation");
     println!("cargo:rustc-link-lib=framework=Virtualization");
@@ -77,46 +72,21 @@ fn build(sdk_path: Option<&str>, target: &str) {
             "#include<Virtualization/Virtualization.h>",
         );
 
-    // Generate the bindings.
-    let bindings = builder
+    // Generate the bindings and write them to a file in the source hierarchy for easy debugging.
+    // The generated bindings are in the .gitignore and are NOT checked in.
+    let out_file = Path::new("src/bindings.rs");
+    builder
         .generate()
         .expect("unable to generate bindings")
-        .to_string();
-
-    let bindings = bindings
-        .replace("unsafe fn setNeedsDisplayInRect_(&self, invalidRect: NSRect)","unsafe fn setNeedsDisplayInRect_(&self, invalidRect_: NSRect)")
-        .replace("msg_send!(*self, setNeedsDisplayInRect: invalidRect)","msg_send!(*self, setNeedsDisplayInRect: invalidRect_)")
-        .replace("unsafe fn setShadow_(&self, shadow: NSShadow)", "unsafe fn setShadow_(&self, shadow_: NSShadow)")
-        .replace("msg_send!(*self, setShadow: shadow)","msg_send!(*self, setShadow: shadow_)")
-        .replace("unsafe fn blendedColorWithFraction_ofColor_(&self, fraction: CGFloat, color: NSColor) -> NSColor","unsafe fn blendedColorWithFraction_ofColor_(&self, fraction_: CGFloat, color: NSColor) -> NSColor")
-        .replace("msg_send ! (* self , blendedColorWithFraction : fraction ofColor : color)","msg_send ! (* self , blendedColorWithFraction : fraction_ ofColor : color)")
-        .replace("unsafe fn selectColumnIndexes_byExtendingSelection_(&self, indexes: NSIndexSet, extend: BOOL)","unsafe fn selectColumnIndexes_byExtendingSelection_(&self, indexes: NSIndexSet, extend_: BOOL)")
-        .replace("msg_send ! (* self , selectColumnIndexes : indexes byExtendingSelection : extend)","msg_send ! (* self , selectColumnIndexes : indexes byExtendingSelection : extend_)")
-        .replace("unsafe fn selectRowIndexes_byExtendingSelection_(&self, indexes: NSIndexSet, extend: BOOL)","unsafe fn selectRowIndexes_byExtendingSelection_(&self, indexes: NSIndexSet, extend_: BOOL)")
-        .replace("msg_send ! (* self , selectRowIndexes : indexes byExtendingSelection : extend)","msg_send ! (* self , selectRowIndexes : indexes byExtendingSelection : extend_)")
-        .replace("unsafe fn selectColumn_byExtendingSelection_(&self, column: NSInteger, extend: BOOL)","unsafe fn selectColumn_byExtendingSelection_(&self, column: NSInteger, extend_: BOOL)")
-        .replace("msg_send ! (* self , selectColumn : column byExtendingSelection : extend)","msg_send ! (* self , selectColumn : column byExtendingSelection : extend_)")
-        .replace("unsafe fn selectRow_byExtendingSelection_(&self, row: NSInteger, extend: BOOL)","unsafe fn selectRow_byExtendingSelection_(&self, row: NSInteger, extend_: BOOL)")
-        .replace("msg_send ! (* self , selectRow : row byExtendingSelection : extend)","msg_send ! (* self , selectRow : row byExtendingSelection : extend_)");
-
-    // Get the cargo out directory.
-    // let out_dir = PathBuf::from(env::var("OUT_DIR").expect("env variable OUT_DIR not found"));
-    let out_dir = PathBuf::from("src/");
-    let mut file =
-        fs::File::create(out_dir.join("bindings.rs")).expect("could not open bindings file");
-
-    // Write them to the crate root.
-    file.write_all(bindings.as_bytes())
-        .expect("could not write to bindings file");
-    file.flush()
-        .expect("could not flush contents to bindings file");
+        .write_to_file(out_file)
+        .expect("unable to write bindings to file");
 }
 
 fn main() {
     let target = std::env::var("TARGET").unwrap();
     if !target.contains("apple-darwin") {
         panic!(
-            "kaiseki-backend-virtualization requires the *-apple-darwin target (target is {})",
+            "virtualization-sys requires the *-apple-darwin target (target is {})",
             target
         );
     }
