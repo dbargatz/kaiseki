@@ -29,6 +29,7 @@ fn build(sdk_path: Option<&str>, target: &str) {
     // Only link to each framework and include their headers if their features are enabled and they
     // are available on the target os.
     println!("cargo:rerun-if-env-changed=BINDGEN_EXTRA_CLANG_ARGS");
+    println!("cargo:rustc-link-lib=framework=Foundation");
     println!("cargo:rustc-link-lib=framework=Virtualization");
 
     // See https://github.com/rust-lang/rust-bindgen/issues/1211
