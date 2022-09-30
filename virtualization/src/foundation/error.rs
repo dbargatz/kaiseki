@@ -3,7 +3,7 @@ use std::fmt;
 use virtualization_sys as vz_sys;
 use vz_sys::INSError;
 
-use super::NSString;
+use super::{NSDictionary, NSString};
 
 pub struct NSError(vz_sys::NSError);
 impl NSError {
@@ -25,15 +25,23 @@ impl NSError {
         let inner = NSString::from(str);
         String::from(inner.as_str())
     }
+
+    pub fn user_info(&self) -> NSDictionary {
+        let inner_dict = unsafe { self.0.userInfo() };
+        NSDictionary::from(inner_dict)
+    }
 }
 
 impl fmt::Display for NSError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("NSError:\n")?;
         f.write_str(format!("  code       : {}\n", self.code()).as_str())?;
-        f.write_str(format!("  description: {}\n", self.localized_description()).as_str())
-        //f.write_str("  userinfo   :\n")?;
-        //f.write_str(format!("    debug      : {}\n", self.localized_description()).as_str())?;
+        f.write_str(format!("  description: {}\n", self.localized_description()).as_str())?;
+        f.write_str("  userinfo   : {")?;
+        for (k, v) in self.user_info() {
+            f.write_str(format!("\n    {}       : {}", k, v).as_str())?;
+        }
+        f.write_str("  }")
     }
 }
 
