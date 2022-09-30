@@ -26,6 +26,12 @@ impl NSDictionary {
     }
 }
 
+impl Default for NSDictionary {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl From<vz_sys::id> for NSDictionary {
     fn from(p: vz_sys::id) -> Self {
         NSDictionary::from(vz_sys::NSDictionary(p))
@@ -48,7 +54,7 @@ impl Iterator for NSDictionary {
         let key_ptr = unsafe {
             <vz_sys::NSEnumerator as INSEnumerator<vz_sys::id>>::nextObject(&self.key_enum)
         };
-        if std::ptr::null_mut() != key_ptr {
+        if !key_ptr.is_null() {
             let value_ptr = unsafe {
                 <vz_sys::NSDictionary as INSDictionary<vz_sys::id, vz_sys::id>>::objectForKey_(
                     &self.inner,

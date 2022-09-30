@@ -28,9 +28,12 @@ struct MessageEnvelope<M: BusMessage> {
     pub request: M,
 }
 
+type ReceiverList<M> = Vec<(ComponentId, Receiver<MessageEnvelope<M>>)>;
+type SenderList<M> = Vec<(ComponentId, Sender<MessageEnvelope<M>>)>;
+
 struct MessageBusState<M: BusMessage> {
-    receivers: HashMap<ComponentId, Vec<(ComponentId, Receiver<MessageEnvelope<M>>)>>,
-    senders: HashMap<ComponentId, Vec<(ComponentId, Sender<MessageEnvelope<M>>)>>,
+    receivers: HashMap<ComponentId, ReceiverList<M>>,
+    senders: HashMap<ComponentId, SenderList<M>>,
 }
 
 #[derive(Clone)]
@@ -127,7 +130,7 @@ impl<M: BusMessage> MessageBus<M> {
             receivers = state
                 .receivers
                 .get(receiver_id)
-                .ok_or(MessageBusError::NoSendersToReceiver(receiver_id.clone()))?
+                .ok_or_else(|| MessageBusError::NoSendersToReceiver(receiver_id.clone()))?
                 .clone();
         }
 
@@ -149,7 +152,7 @@ impl<M: BusMessage> MessageBus<M> {
                         Ok((message.request, message.response_tx))
                     }
                     Err(_) => Err(MessageBusError::Disconnected(
-                        sender_id.clone(),
+                        sender_id,
                         receiver_id.clone(),
                     )),
                 }
@@ -164,7 +167,7 @@ impl<M: BusMessage> MessageBus<M> {
             senders = state
                 .senders
                 .get(sender_id)
-                .ok_or(MessageBusError::NoReceiversForSender(sender_id.clone()))?
+                .ok_or_else(|| MessageBusError::NoReceiversForSender(sender_id.clone()))?
                 .clone();
         }
 
@@ -202,7 +205,7 @@ impl<M: BusMessage> MessageBus<M> {
                     }
                     Err(_) => Err(MessageBusError::Disconnected(
                         sender_id.clone(),
-                        receiver_id.clone(),
+                        receiver_id,
                     )),
                 }
             }
@@ -216,7 +219,7 @@ impl<M: BusMessage> MessageBus<M> {
             senders = state
                 .senders
                 .get(sender_id)
-                .ok_or(MessageBusError::NoReceiversForSender(sender_id.clone()))?
+                .ok_or_else(|| MessageBusError::NoReceiversForSender(sender_id.clone()))?
                 .clone();
         }
 
@@ -248,7 +251,7 @@ impl<M: BusMessage> MessageBus<M> {
             receivers = state
                 .receivers
                 .get(receiver_id)
-                .ok_or(MessageBusError::NoSendersToReceiver(receiver_id.clone()))?
+                .ok_or_else(|| MessageBusError::NoSendersToReceiver(receiver_id.clone()))?
                 .clone();
         }
 
@@ -261,7 +264,7 @@ impl<M: BusMessage> MessageBus<M> {
                 Err(TryRecvError::Empty) => continue,
                 Err(TryRecvError::Closed) => {
                     return Err(MessageBusError::Disconnected(
-                        sender_id.clone(),
+                        sender_id,
                         receiver_id.clone(),
                     ))
                 }

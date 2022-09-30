@@ -47,6 +47,12 @@ impl VZVirtualMachineConfiguration {
     }
 }
 
+impl Default for VZVirtualMachineConfiguration {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::VZVirtualMachineConfiguration;

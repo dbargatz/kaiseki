@@ -32,6 +32,12 @@ impl NSError {
     }
 }
 
+impl Default for NSError {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl fmt::Display for NSError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("NSError:\n")?;

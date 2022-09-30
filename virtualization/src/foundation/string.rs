@@ -27,6 +27,10 @@ impl NSString {
         self.0
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn len(&self) -> usize {
         unsafe { self.0.lengthOfBytesUsingEncoding_(NSUTF8StringEncoding) as usize }
     }

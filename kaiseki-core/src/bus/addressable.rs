@@ -104,14 +104,14 @@ impl AddressableBus {
             // Determine if the start or end address of the existing or new mappings
             // overlap with each other at all. If so, we have a mapping conflict and
             // need to return an error.
-            if existing_range.contains(&address_range.start())
-                || existing_range.contains(&address_range.end())
-                || address_range.contains(&existing_range.start())
-                || address_range.contains(&existing_range.end())
+            if existing_range.contains(address_range.start())
+                || existing_range.contains(address_range.end())
+                || address_range.contains(existing_range.start())
+                || address_range.contains(existing_range.end())
             {
                 return Err(AddressableBusError::MappingConflict(
                     component.id().clone(),
-                    address_range.clone(),
+                    address_range,
                     existing_component.id().clone(),
                     existing_range.clone(),
                 ));
