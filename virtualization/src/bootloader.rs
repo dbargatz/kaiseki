@@ -24,8 +24,13 @@ impl From<VZLinuxBootLoader> for VZBootLoader {
 
 pub struct VZLinuxBootLoader(vz_sys::VZLinuxBootLoader);
 impl VZLinuxBootLoader {
-    pub fn new() -> Self {
+    pub fn new(kernel_path: &str) -> Self {
         let inner = vz_sys::VZLinuxBootLoader::alloc();
+        let path = NSURL::new(kernel_path);
+        let inner = unsafe {
+            let ptr = inner.initWithKernelURL_(path.into_inner());
+            vz_sys::VZLinuxBootLoader(ptr)
+        };
         Self(inner)
     }
 
@@ -52,7 +57,7 @@ impl VZLinuxBootLoader {
     pub fn with_kernel_path(self, path: &str) -> Self {
         let path = NSURL::new(path);
         unsafe {
-            self.0.initWithKernelURL_(path.into_inner());
+            self.0.setKernelURL_(path.into_inner());
         };
         self
     }
@@ -70,25 +75,29 @@ mod tests {
 
     #[test]
     fn new_works() {
-        let _ = VZLinuxBootLoader::new();
+        let kernel_path = "/Users/user/Documents/vmlinuz";
+        let _ = VZLinuxBootLoader::new(kernel_path);
     }
 
     #[test]
     fn with_command_line_works() {
+        let kernel_path = "/Users/user/Documents/vmlinuz";
         let command_line = "console=hvc0";
-        let _ = VZLinuxBootLoader::new().with_command_line(command_line);
+        let _ = VZLinuxBootLoader::new(kernel_path).with_command_line(command_line);
     }
 
     #[test]
     fn with_kernel_path_works() {
-        let path = "/Users/user/Documents/vmlinuz";
-        let _ = VZLinuxBootLoader::new().with_kernel_path(path);
+        let kernel_path_a = "/Users/user/Documents/A";
+        let kernel_path_b = "/Users/user/Documents/B";
+        let _ = VZLinuxBootLoader::new(kernel_path_a).with_kernel_path(kernel_path_b);
     }
 
     #[test]
     fn with_initial_ramdisk_path_works() {
-        let path = "/Users/user/Documents/initrd.img";
-        let _ = VZLinuxBootLoader::new().with_initial_ramdisk_path(path);
+        let kernel_path = "/Users/user/Documents/vmlinuz";
+        let initrd_path = "/Users/user/Documents/initrd.img";
+        let _ = VZLinuxBootLoader::new(kernel_path).with_initial_ramdisk_path(initrd_path);
     }
 
     #[test]
@@ -96,10 +105,9 @@ mod tests {
         let command_line = "console=hvc0";
         let kernel_path = "/Users/user/Documents/vmlinuz";
         let initrd_path = "/Users/user/Documents/initrd.img";
-        let bootloader = VZLinuxBootLoader::new()
+        let bootloader = VZLinuxBootLoader::new(kernel_path)
             .with_command_line(command_line)
-            .with_initial_ramdisk_path(initrd_path)
-            .with_kernel_path(kernel_path);
+            .with_initial_ramdisk_path(initrd_path);
         let _: VZBootLoader = bootloader.into();
     }
 }
