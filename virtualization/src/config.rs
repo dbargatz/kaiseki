@@ -1,7 +1,7 @@
 use virtualization_sys::{
     self as vz_sys, VZVirtualMachineConfiguration_VZVirtualMachineConfigurationValidation,
 };
-use vz_sys::IVZVirtualMachineConfiguration;
+use vz_sys::{INSObject, IVZVirtualMachineConfiguration};
 
 use crate::{bootloader::VZBootLoader, foundation::NSError};
 
@@ -9,7 +9,15 @@ pub struct VZVirtualMachineConfiguration(vz_sys::VZVirtualMachineConfiguration);
 impl VZVirtualMachineConfiguration {
     pub fn new() -> Self {
         let inner = vz_sys::VZVirtualMachineConfiguration::alloc();
+        let inner = unsafe {
+            let ptr = inner.init();
+            vz_sys::VZVirtualMachineConfiguration(ptr)
+        };
         Self(inner)
+    }
+
+    pub fn into_inner(self) -> vz_sys::VZVirtualMachineConfiguration {
+        self.0
     }
 
     pub fn with_bootloader(self, bootloader: VZBootLoader) -> Self {
@@ -54,10 +62,9 @@ mod tests {
         let command_line = "console=hvc0";
         let kernel_path = "/Users/user/Documents/vmlinuz";
         let initrd_path = "/Users/user/Documents/initrd.img";
-        let bootloader = VZLinuxBootLoader::new()
+        let bootloader = VZLinuxBootLoader::new(kernel_path)
             .with_command_line(command_line)
-            .with_initial_ramdisk_path(initrd_path)
-            .with_kernel_path(kernel_path);
+            .with_initial_ramdisk_path(initrd_path);
         let _ = VZVirtualMachineConfiguration::new().with_bootloader(bootloader.into());
     }
 
@@ -74,12 +81,11 @@ mod tests {
     #[test]
     fn validate_with_error_works() {
         let command_line = "console=hvc0";
-        let kernel_path = "/Users/dylan/Downloads/vmlinuz";
+        let kernel_path = "/Users/dylan/Downloads/vmlinux";
         let initrd_path = "/Users/dylan/Downloads/initrd.img";
-        let bootloader = VZLinuxBootLoader::new()
+        let bootloader = VZLinuxBootLoader::new(kernel_path)
             .with_command_line(command_line)
-            .with_initial_ramdisk_path(initrd_path)
-            .with_kernel_path(kernel_path);
+            .with_initial_ramdisk_path(initrd_path);
 
         let config = VZVirtualMachineConfiguration::new()
             .with_bootloader(bootloader.into())
