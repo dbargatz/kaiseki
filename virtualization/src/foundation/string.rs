@@ -44,6 +44,12 @@ impl fmt::Display for NSString {
     }
 }
 
+impl From<vz_sys::id> for NSString {
+    fn from(p: vz_sys::id) -> Self {
+        NSString::from(vz_sys::NSString(p))
+    }
+}
+
 impl From<vz_sys::NSString> for NSString {
     fn from(p: vz_sys::NSString) -> Self {
         NSString(p)
