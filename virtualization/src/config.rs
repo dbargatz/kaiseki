@@ -87,8 +87,8 @@ mod tests {
     #[test]
     fn validate_with_error_works() {
         let command_line = "console=hvc0";
-        let kernel_path = "/Users/dylan/Downloads/vmlinux";
-        let initrd_path = "/Users/dylan/Downloads/initrd.img";
+        let kernel_path = "/Users/user/Downloads/vmlinuz";
+        let initrd_path = "/Users/user/Downloads/initrd.img";
         let bootloader = VZLinuxBootLoader::new(kernel_path)
             .with_command_line(command_line)
             .with_initial_ramdisk_path(initrd_path);
