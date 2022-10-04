@@ -15,7 +15,7 @@ impl DispatchQueue {
 
     fn _create_block<F>(closure: F) -> *mut std::os::raw::c_void
     where
-        F: Fn() -> () + 'static,
+        F: Fn() + 'static,
     {
         let dispatch_block = block::ConcreteBlock::new(closure);
         let dispatch_block = dispatch_block.copy();
@@ -32,7 +32,7 @@ impl DispatchQueue {
 
     pub fn dispatch_async<F>(&self, closure: F)
     where
-        F: Fn() -> () + 'static,
+        F: Fn() + 'static,
     {
         let block_ptr = Self::_create_block(closure);
         unsafe {
@@ -42,7 +42,7 @@ impl DispatchQueue {
 
     pub fn dispatch_sync<F>(&self, closure: F)
     where
-        F: Fn() -> () + 'static,
+        F: Fn() + 'static,
     {
         let block_ptr = Self::_create_block(closure);
         unsafe {
