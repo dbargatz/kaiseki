@@ -42,7 +42,7 @@ impl VZVirtualMachine {
                 }
 
                 let err = NSError::from(err);
-                println!("VM failed to start. Error: {:?}", err);
+                println!("VM failed to start. {}", err);
             });
             let completion_handler = completion_handler.copy();
             let completion_handler: &block::Block<(vz_sys::id,), ()> = &completion_handler;
