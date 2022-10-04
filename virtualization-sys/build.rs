@@ -65,7 +65,11 @@ fn build(sdk_path: Option<&str>, target: &str) {
         .allowlist_type("[I|P|]NSValue")
         .allowlist_type("[I|P|]NSView")
         .allowlist_type("NSString_NSStringExtensionMethods")
+        .allowlist_type("PVZVirtualMachineDelegate")
         .allowlist_type("VZVirtualMachineConfiguration_VZVirtualMachineConfigurationValidation")
+        .allowlist_function("dispatch_async")
+        .allowlist_function("dispatch_queue_create")
+        .allowlist_function("dispatch_sync")
         .allowlist_var("NSUTF8StringEncoding")
         .header_contents(
             "Virtualization.h",
