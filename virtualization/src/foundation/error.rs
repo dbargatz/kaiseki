@@ -43,11 +43,27 @@ impl fmt::Display for NSError {
         f.write_str("NSError:\n")?;
         f.write_str(format!("  code       : {}\n", self.code()).as_str())?;
         f.write_str(format!("  description: {}\n", self.localized_description()).as_str())?;
-        f.write_str("  userinfo   : {")?;
-        for (k, v) in self.user_info() {
-            f.write_str(format!("\n    {}       : {}", k, v).as_str())?;
+
+        let user_info = self.user_info();
+        if user_info.is_empty() {
+            return f.write_str("  userinfo   : { }");
         }
-        f.write_str("  }")
+
+        f.write_str("  userinfo   : {")?;
+        for (k, v) in user_info {
+            match k.as_str() {
+                "NSLocalizedFailure" | "NSLocalizedFailureReason" => {
+                    let v_str = NSString::from(v);
+                    f.write_str(format!("\n    {:<24}: {}", k.as_str(), v_str.as_str()).as_str())?;
+                }
+                "NSUnderlyingError" => {
+                    let v_err = NSError::from(v);
+                    f.write_str(format!("\n    {:<24}: {}", k.as_str(), v_err).as_str())?;
+                }
+                _ => f.write_str(format!("\n    {:<24}: {:?}", k.as_str(), v).as_str())?,
+            }
+        }
+        f.write_str("\n  }")
     }
 }
 
@@ -56,7 +72,14 @@ impl fmt::Debug for NSError {
         f.debug_struct("NSError")
             .field("code", &self.code())
             .field("description", &self.localized_description())
+            .field("userinfo", &self.user_info())
             .finish()
+    }
+}
+
+impl From<vz_sys::id> for NSError {
+    fn from(p: vz_sys::id) -> Self {
+        NSError::from(vz_sys::NSError(p))
     }
 }
 

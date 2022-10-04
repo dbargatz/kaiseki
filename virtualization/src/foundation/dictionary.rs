@@ -1,7 +1,9 @@
+use std::fmt;
+
 use virtualization_sys as vz_sys;
 use vz_sys::{INSDictionary, INSEnumerator};
 
-use super::NSString;
+use super::{NSError, NSString};
 
 pub struct NSDictionary {
     inner: vz_sys::NSDictionary,
@@ -24,11 +26,47 @@ impl NSDictionary {
     pub fn into_inner(self) -> vz_sys::NSDictionary {
         self.inner
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn len(&self) -> usize {
+        let length = unsafe {
+            <vz_sys::NSDictionary as INSDictionary<vz_sys::id, vz_sys::id>>::count(&self.inner)
+        };
+        length as usize
+    }
 }
 
 impl Default for NSDictionary {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl fmt::Debug for NSDictionary {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let copy = NSDictionary::from(self.inner.0);
+        let mut map = f.debug_map();
+        for (k, v) in copy {
+            let value_class = unsafe { (*v).class() };
+            let value_str = match value_class.name() {
+                "__NSCFString" => {
+                    let str = NSString::from(v);
+                    String::from(str.as_str())
+                }
+                "NSError" => {
+                    let err = NSError::from(v);
+                    format!("{:?}", err)
+                }
+                _ => {
+                    format!("{:?} ({})", v, value_class.name())
+                }
+            };
+            map.entry(&k, &value_str);
+        }
+        map.finish()
     }
 }
 
@@ -48,7 +86,7 @@ impl From<vz_sys::NSDictionary> for NSDictionary {
 }
 
 impl Iterator for NSDictionary {
-    type Item = (NSString, NSString);
+    type Item = (NSString, vz_sys::id);
 
     fn next(&mut self) -> Option<Self::Item> {
         let key_ptr = unsafe {
@@ -62,7 +100,7 @@ impl Iterator for NSDictionary {
                 )
             };
             let key = NSString::from(key_ptr);
-            let value = NSString::from(value_ptr);
+            let value = value_ptr;
             Some((key, value))
         } else {
             None
