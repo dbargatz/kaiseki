@@ -62,10 +62,8 @@ mod tests {
     fn create_linux_config() -> VZVirtualMachineConfiguration {
         let command_line = "console=hvc0";
         let kernel_path = "/Users/user/Downloads/vmlinuz";
-        let initrd_path = "/Users/user/Downloads/initrd.img";
         let bootloader = VZLinuxBootLoader::new(kernel_path)
-            .with_command_line(command_line)
-            .with_initial_ramdisk_path(initrd_path);
+            .with_command_line(command_line);
 
         let config = VZVirtualMachineConfiguration::new()
             .with_bootloader(bootloader.into())
