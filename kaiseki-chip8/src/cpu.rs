@@ -79,7 +79,9 @@ impl Chip8CPU {
 
     async fn fetch(&self, address: u16) -> Result<u16> {
         let bytes = self.memory_bus.read(address as usize, 2)?;
-        let slice: [u8; 2] = bytes[0..2].try_into().expect("couldn't convert Vec<u8> to [u8; 2]");
+        let slice: [u8; 2] = bytes[0..2]
+            .try_into()
+            .expect("couldn't convert Vec<u8> to [u8; 2]");
         Ok(u16::from_be_bytes(slice))
     }
 
