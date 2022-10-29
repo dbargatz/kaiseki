@@ -169,7 +169,6 @@ mod tests {
     use std::sync::{Arc, RwLock};
 
     use anyhow::Result;
-    use bytes::{BufMut, Bytes, BytesMut};
     use rand::Rng;
 
     use super::{
@@ -179,7 +178,7 @@ mod tests {
     #[derive(Clone)]
     struct TestComponent {
         id: ComponentId,
-        data: Arc<RwLock<BytesMut>>,
+        data: Arc<RwLock<Vec<u8>>>,
     }
 
     impl Component for TestComponent {
@@ -189,16 +188,15 @@ mod tests {
     }
 
     impl AddressableComponent for TestComponent {
-        fn read(&self, address: usize, length: usize) -> Result<Bytes> {
+        fn read(&self, address: usize, length: usize) -> Result<Vec<u8>> {
             let data = self.data.read().unwrap();
             let slice = &data[address..address + length];
-            Ok(Bytes::copy_from_slice(slice))
+            Ok(Vec::from(slice))
         }
 
         fn write(&self, address: usize, bytes: &[u8]) -> Result<()> {
             let mut data = self.data.write().unwrap();
-            let mut buf = &mut data[address..address + bytes.len()];
-            buf.put_slice(bytes);
+            data.splice(address..address + bytes.len(), bytes.iter().cloned());
             Ok(())
         }
     }
@@ -207,7 +205,7 @@ mod tests {
         pub fn new(name: &str) -> Self {
             let mut buf = [0u8; 1024];
             rand::thread_rng().fill(&mut buf);
-            let data = BytesMut::from_iter(&buf);
+            let data = Vec::from(buf);
             Self {
                 id: ComponentId::new(name),
                 data: Arc::new(RwLock::new(data)),
