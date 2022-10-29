@@ -1,6 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use anyhow::Result;
+use tokio::sync::Mutex;
 
 use crate::machine::Machine;
 
@@ -22,7 +23,7 @@ impl Vex {
     pub async fn revert(&self) {}
     pub async fn snapshot(&self) {}
     pub async fn start(&self) -> Result<()> {
-        let mut machine = self.machine.lock().unwrap();
+        let mut machine = self.machine.lock().await;
         machine.load(self.command.as_str())?;
         machine.start().await;
         Ok(())
