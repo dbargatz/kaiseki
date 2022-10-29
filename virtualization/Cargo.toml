@@ -6,3 +6,6 @@ edition = "2021"
 [dependencies]
 block = { version = "0.1" }
 virtualization-sys = { path = "../virtualization-sys" }
+
+[dev-dependencies]
+tokio-test = "*"

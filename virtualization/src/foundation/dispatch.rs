@@ -30,7 +30,7 @@ impl DispatchQueue {
         self.inner
     }
 
-    pub fn dispatch_async<F>(&self, closure: F)
+    pub async fn dispatch_async<F>(&self, closure: F)
     where
         F: Fn() + 'static,
     {

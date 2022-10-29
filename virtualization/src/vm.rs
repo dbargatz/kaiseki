@@ -29,7 +29,7 @@ impl VZVirtualMachine {
         (self.inner, self.dispatch_queue)
     }
 
-    pub fn start(&self) -> Result<(), NSError> {
+    pub async fn start(&self) -> Result<(), NSError> {
         let inner = self.inner;
         let dispatch_closure = move || {
             let completion_handler = block::ConcreteBlock::new(|err: vz_sys::id| {
@@ -49,7 +49,7 @@ impl VZVirtualMachine {
                 completion_handler as *const _ as *mut std::os::raw::c_void;
             unsafe { inner.startWithCompletionHandler_(completion_handler_ptr) };
         };
-        self.dispatch_queue.dispatch_async(dispatch_closure);
+        self.dispatch_queue.dispatch_async(dispatch_closure).await;
         Ok(())
     }
 }
@@ -83,6 +83,6 @@ mod tests {
     fn start_works() {
         let config = create_linux_config();
         let vm = VZVirtualMachine::new(config);
-        vm.start().expect("VM failed to start");
+        tokio_test::block_on(vm.start()).expect("VM did not start");
     }
 }
