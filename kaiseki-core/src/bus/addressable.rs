@@ -124,13 +124,15 @@ impl AddressableBus {
     }
 
     pub fn read(&self, address: usize, length: usize) -> Result<Vec<u8>, AddressableBusError> {
+        tracing::trace!("bus: reading {} bytes from 0x{:08X}", length, address);
         let state = self.state.read().unwrap();
-        let component = state
+        let (range, component) = state
             .mappings
-            .get(&address)
+            .get_key_value(&address)
             .ok_or(AddressableBusError::NoComponentMappedAtAddress(address))?;
 
-        match component.read(address, length) {
+        let adjusted_address = address - range.start();
+        match component.read(adjusted_address, length) {
             Ok(bytes) => Ok(bytes),
             Err(_) => {
                 let bus_err = AddressableBusError::ComponentReadFailed(
@@ -144,13 +146,15 @@ impl AddressableBus {
     }
 
     pub fn write(&self, address: usize, data: &[u8]) -> Result<(), AddressableBusError> {
+        tracing::trace!("bus: writing {} bytes to 0x{:08X}", data.len(), address);
         let state = self.state.read().unwrap();
-        let component = state
+        let (range, component) = state
             .mappings
-            .get(&address)
+            .get_key_value(&address)
             .ok_or(AddressableBusError::NoComponentMappedAtAddress(address))?;
 
-        match component.write(address, data) {
+        let adjusted_address = address - range.start();
+        match component.write(adjusted_address, data) {
             Ok(_) => Ok(()),
             Err(_) => {
                 let bus_err = AddressableBusError::ComponentWriteFailed(

@@ -4,7 +4,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 use kaiseki_core::{
-    AddressableBus, Component, ComponentId, DisplayBus, ExecutableComponent, OscillatorBus,
+    AddressableBus, Component, ComponentId, ExecutableComponent, OscillatorBus,
     OscillatorBusMessage,
 };
 
@@ -20,7 +20,6 @@ pub enum Chip8CpuError {
 pub struct Chip8CPU {
     id: ComponentId,
     clock_bus: OscillatorBus,
-    display_bus: DisplayBus,
     memory_bus: AddressableBus,
     regs: Chip8Registers,
     stack: Chip8Stack,
@@ -58,23 +57,43 @@ impl ExecutableComponent for Chip8CPU {
 }
 
 impl Chip8CPU {
-    pub fn new(
-        clock_bus: &OscillatorBus,
-        display_bus: &DisplayBus,
-        memory_bus: &AddressableBus,
-        initial_pc: u16,
-    ) -> Self {
+    pub fn new(clock_bus: &OscillatorBus, memory_bus: &AddressableBus, initial_pc: u16) -> Self {
         let id = ComponentId::new("Chip-8 CPU");
         let mut cpu = Chip8CPU {
             id,
             clock_bus: clock_bus.clone(),
-            display_bus: display_bus.clone(),
             memory_bus: memory_bus.clone(),
             regs: Chip8Registers::new(),
             stack: Chip8Stack::new(),
         };
         cpu.regs.PC = initial_pc;
         cpu
+    }
+
+    fn draw_sprite(&self, address: u16, length: u8, x_pos: usize, y_pos: usize) -> bool {
+        let sprite = self.memory_bus.read(address.into(), length.into()).unwrap();
+        let mut pixel_flipped = false;
+        for (sprite_row, sprite_byte) in sprite.iter().enumerate() {
+            let pixel_y_idx = (y_pos + sprite_row) * 64; // TODO: fix up how width is stored, make const
+            for sprite_col in 0..=7 {
+                let pixel_x_idx = x_pos + sprite_col;
+                let pixel_byte_idx = (pixel_y_idx + pixel_x_idx) / 8;
+                let pixel_bit_idx = (pixel_y_idx + pixel_x_idx) % 8;
+
+                let sprite_bit = (sprite_byte & (0x80 >> sprite_col)) >> (7 - sprite_col);
+                let sprite_mask = sprite_bit << (7 - pixel_bit_idx);
+                let mut pixel_byte = self.memory_bus.read(0x1000 + pixel_byte_idx, 1).unwrap()[0];
+                let prev_value = pixel_byte;
+                pixel_byte ^= sprite_mask;
+                if prev_value != pixel_byte {
+                    pixel_flipped = true;
+                }
+                self.memory_bus
+                    .write(0x1000 + pixel_byte_idx, &[pixel_byte])
+                    .unwrap();
+            }
+        }
+        pixel_flipped
     }
 
     async fn fetch(&self, address: u16) -> Result<u16> {
@@ -97,7 +116,7 @@ impl Chip8CPU {
             0x0000..=0x0FFF => match opcode {
                 0x00E0 => {
                     self.regs.PC += 2;
-                    self.display_bus.clear(&self.id).await?;
+                    self.memory_bus.write(0x1000, &[0; 2048]).unwrap();
                     desc = String::from("clear screen");
                 }
                 0x00EE => {
@@ -304,14 +323,15 @@ impl Chip8CPU {
             0xD000..=0xDFFF => {
                 let vx = *self.regs.get_register_ref(vx_id);
                 let vy = *self.regs.get_register_ref(vy_id);
-                self.regs.VF = self
-                    .display_bus
-                    .draw_sprite(&self.id, self.regs.VI, embedded_nybble, vx, vy)
-                    .await?;
+                self.regs.VF =
+                    match self.draw_sprite(self.regs.VI, embedded_nybble, vx.into(), vy.into()) {
+                        true => 1,
+                        false => 0,
+                    };
                 self.regs.PC += 2;
                 desc = format!(
-                    "draw {}-byte sprite in memory at 0x{:04X} to (V{}, V{})",
-                    embedded_nybble, self.regs.VI, vx_id, vy_id
+                    "draw {}-byte sprite in memory at 0x{:04X} to (V{}: {}, V{}: {})",
+                    embedded_nybble, self.regs.VI, vx_id, vx, vy_id, vy
                 );
             }
             _ => panic!("invalid opcode: 0x{:04X}", opcode),
