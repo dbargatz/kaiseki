@@ -7,7 +7,6 @@ edition = "2021"
 anyhow = { version = "1" }
 async-channel = { version = "1" }
 async-trait = { version = "0.1" }
-bytes = { version = "1" }
 futures = { version = "0.3" }
 rangemap = { version = "1" }
 thiserror = { version = "1" }

@@ -1,7 +1,6 @@
 use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
-use bytes::Bytes;
 
 use crate::component::{AddressableComponent, Component, ComponentId};
 
@@ -27,12 +26,12 @@ impl<const N: usize> Component for RAM<N> {
 }
 
 impl<const N: usize> AddressableComponent for RAM<N> {
-    fn read(&self, address: usize, length: usize) -> Result<Bytes> {
+    fn read(&self, address: usize, length: usize) -> Result<Vec<u8>> {
         let mut state = self.state.lock().unwrap();
         state.bytes_read += length;
         state.num_reads += 1;
         let slice = &state.buffer[address..address + length];
-        Ok(Bytes::copy_from_slice(slice))
+        Ok(Vec::from(slice))
     }
 
     fn write(&self, address: usize, data: &[u8]) -> Result<()> {

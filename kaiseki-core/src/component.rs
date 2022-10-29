@@ -2,7 +2,6 @@ use std::fmt;
 
 use anyhow::Result;
 use async_trait::async_trait;
-use bytes::Bytes;
 use uuid::Uuid;
 
 #[derive(Debug, Eq, Hash, PartialEq)]
@@ -47,7 +46,7 @@ impl PartialEq for dyn Component + '_ {
 impl Eq for dyn Component + '_ {}
 
 pub trait AddressableComponent: Component {
-    fn read(&self, address: usize, length: usize) -> Result<Bytes>;
+    fn read(&self, address: usize, length: usize) -> Result<Vec<u8>>;
     fn write(&self, address: usize, data: &[u8]) -> Result<()>;
 }
 

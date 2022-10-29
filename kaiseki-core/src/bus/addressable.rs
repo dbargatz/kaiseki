@@ -3,7 +3,6 @@ use std::ops::RangeInclusive;
 use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
-use bytes::Bytes;
 use rangemap::RangeInclusiveMap;
 use thiserror::Error;
 
@@ -124,7 +123,7 @@ impl AddressableBus {
         Ok(())
     }
 
-    pub fn read(&self, address: usize, length: usize) -> Result<Bytes, AddressableBusError> {
+    pub fn read(&self, address: usize, length: usize) -> Result<Vec<u8>, AddressableBusError> {
         let state = self.state.read().unwrap();
         let component = state
             .mappings
