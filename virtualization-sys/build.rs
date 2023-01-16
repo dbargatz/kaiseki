@@ -3,7 +3,7 @@ use std::path::Path;
 fn sdk_path(target: &str) -> Result<String, std::io::Error> {
     use std::process::Command;
     let sdk = if vec!["x86_64-apple-darwin", "aarch64-apple-darwin"].contains(&target) {
-        "macosx12.3"
+        "macosx13.1"
     } else {
         unreachable!();
     };
