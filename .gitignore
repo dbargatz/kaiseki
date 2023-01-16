@@ -11,6 +11,3 @@ Cargo.lock
 
 # macOS-specific files
 .DS_Store
-
-# Don't commit the generated bindings for macOS Virtualization.Framework.
-virtualization-sys/src/bindings.rs
