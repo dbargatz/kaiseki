@@ -6,12 +6,12 @@ mod error;
 use error::{DisassemblyError, Result};
 
 mod field;
-use field::FieldDefinition;
+use field::Field;
 
 #[derive(PartialEq)]
 struct InstructionVariantDefinition {
     name: String,
-    fields: Vec<FieldDefinition>,
+    fields: Vec<Field>,
 }
 
 impl InstructionVariantDefinition {
@@ -22,17 +22,17 @@ impl InstructionVariantDefinition {
         }
     }
 
-    pub fn add_field(&mut self, field: FieldDefinition) {
+    pub fn add_field(&mut self, field: Field) {
         self.fields.push(field);
     }
 
     pub fn try_disassemble(&self, data: &[u8]) -> Result<()> {
         let mut stream = data.view_bits::<Lsb0>();
-        for field_def in &self.fields {
-            if let Err(err) = field_def.try_disassemble(stream) {
+        for field in &self.fields {
+            if let Err(err) = field.try_disassemble(stream) {
                 return Err(err);
             }
-            stream = &stream[field_def.width_bits..];
+            stream = &stream[field.width_bits()..];
         }
         Ok(())
     }
@@ -103,28 +103,25 @@ impl InstructionDefinition {
 
 #[cfg(test)]
 mod tests {
-    use crate::{DisassemblyError, FieldDefinition, InstructionDefinition, InstructionSet, InstructionVariantDefinition, field::Field};
+    use rangemap::RangeInclusiveMap;
+
+    use crate::{DisassemblyError, InstructionDefinition, InstructionSet, InstructionVariantDefinition, field::{Field, FieldDefinition}};
 
     const PUSH_IMM_16: &[u8] = &[0xFF, 0b00_110_000, 0xAA, 0xBB];
     const RESERVED_OPCODE: &[u8] = &[0x0F, 0x04]; // 2-byte reserved opcode
 
-    fn create_push_imm16() -> InstructionVariantDefinition {
-        let mut modrm_def = FieldDefinition::new("mod_rm", 8, Field::AnyValue);
-        let mod_def = FieldDefinition::new("mod", 2, Field::AnyValue);
-        let reg_opcode_def = FieldDefinition::new("reg_opcode", 3, Field::SpecificValue(6));
-        let reg_memory_def = FieldDefinition::new("reg_memory", 3, Field::AnyValue);
-        modrm_def.add_subfield_definition(6..=7, mod_def);
-        modrm_def.add_subfield_definition(3..=5, reg_opcode_def);
-        modrm_def.add_subfield_definition(0..=2, reg_memory_def);
+    fn create_push_imm16(opcode8: &FieldDefinition, modrm: &FieldDefinition, r#mod: &FieldDefinition, reg_opcode: &FieldDefinition, reg_memory: &FieldDefinition, imm16: &FieldDefinition) -> InstructionVariantDefinition {
+        let mut push_imm_16 = InstructionVariantDefinition::new("push [imm16]");
+        let f1 = Field::SpecificValue(opcode8.clone(), 0xFF);
+        let mut f2 = Field::Subfields(modrm.clone(), RangeInclusiveMap::new());
+        f2.add_subfield(6..=7, Field::AnyValue(r#mod.clone()));
+        f2.add_subfield(3..=5, Field::SpecificValue(reg_opcode.clone(), 0b110));
+        f2.add_subfield(0..=2, Field::AnyValue(reg_memory.clone()));
+        let f3 = Field::AnyValue(imm16.clone());
 
-        let opcode = FieldDefinition::new("opcode8", 8, Field::SpecificValue(0xFF));
-        let imm16 = FieldDefinition::new("imm16", 16, Field::AnyValue);
-
-        let mut push_imm_16 = InstructionVariantDefinition::new("push_imm16");
-
-        push_imm_16.add_field(opcode);
-        push_imm_16.add_field(modrm_def);
-        push_imm_16.add_field(imm16);
+        push_imm_16.add_field(f1);
+        push_imm_16.add_field(f2);
+        push_imm_16.add_field(f3);
         push_imm_16
     }
 
@@ -140,8 +137,21 @@ mod tests {
         // imm pattern:   1, 2, 4, or 8 bytes
         // disp pattern:  1, 2, 4, or 8 bytes
         let mut x86_isa = InstructionSet::new();
+
+        let modrm = FieldDefinition::new("mod_rm", 8);
+        let r#mod = FieldDefinition::new("mod", 2);
+        let reg_opcode = FieldDefinition::new("reg_opcode", 3);
+        let reg_memory = FieldDefinition::new("reg_memory", 3);
+        // modrm.add_subfield_definition(6..=7, r#mod);
+        // modrm.add_subfield_definition(3..=5, reg_opcode);
+        // modrm.add_subfield_definition(0..=2, reg_memory);
+
+        let opcode8 = FieldDefinition::new("opcode8", 8);
+        let imm16 = FieldDefinition::new("imm16", 16);
+
+        let push_imm_16 = create_push_imm16(&opcode8, &modrm, &r#mod, &reg_opcode, &reg_memory, &imm16);
+
         let mut push = InstructionDefinition::new("push");
-        let push_imm_16 = create_push_imm16();
 
         push.add_variant_definition(push_imm_16);
 
