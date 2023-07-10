@@ -1,10 +1,10 @@
 use anyhow::Result;
-use clap::{ArgEnum, Parser};
+use clap::{Parser, ValueEnum};
 
 use kaiseki_chip8::machine::Chip8Machine;
 use kaiseki_core::Vex;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ArgEnum)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum SupportedMachines {
     Chip8,
 }
@@ -12,7 +12,7 @@ enum SupportedMachines {
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
-    #[clap(arg_enum, value_parser, short, long)]
+    #[clap(value_enum, value_parser, short, long)]
     machine: SupportedMachines,
 }
 
