@@ -19,12 +19,7 @@ pub enum AddressableBusError {
     #[error(
         "cannot map component {0} to {1:?}; conflicts with component {2} already mapped at {3:?}"
     )]
-    MappingConflict(
-        ComponentId,
-        RangeInclusive<usize>,
-        ComponentId,
-        RangeInclusive<usize>,
-    ),
+    MappingConflict(String, RangeInclusive<usize>, String, RangeInclusive<usize>),
 }
 
 struct AddressableBusState {
@@ -109,9 +104,9 @@ impl AddressableBus {
                 || address_range.contains(existing_range.end())
             {
                 return Err(AddressableBusError::MappingConflict(
-                    component.id().clone(),
+                    component.id().clone().to_string(),
                     address_range,
-                    existing_component.id().clone(),
+                    existing_component.id().clone().to_string(),
                     existing_range.clone(),
                 ));
             }
@@ -260,9 +255,9 @@ mod tests {
         assert_eq!(
             err,
             AddressableBusError::MappingConflict(
-                b_id.clone(),
+                b_id.clone().to_string(),
                 b_range,
-                a_id.clone(),
+                a_id.clone().to_string(),
                 a_range.clone()
             )
         );

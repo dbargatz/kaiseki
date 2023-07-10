@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use clap::{Parser, ValueEnum};
 
 use kaiseki_chip8::machine::Chip8Machine;
@@ -41,9 +41,13 @@ fn create_tokio_runtime() -> tokio::runtime::Runtime {
         .unwrap()
 }
 
-fn create_ui(app: KaisekiApp) {
+fn create_ui(app: KaisekiApp) -> Result<()> {
     let options = eframe::NativeOptions::default();
-    eframe::run_native("Kaiseki", options, Box::new(|_cc| Box::new(app)));
+    let res = eframe::run_native("Kaiseki", options, Box::new(|_cc| Box::new(app)));
+    match res {
+        Ok(_) => Ok(()),
+        Err(_) => Err(anyhow!("Could not set up graphics context")),
+    }
 }
 
 fn main() -> Result<()> {
@@ -65,7 +69,7 @@ fn main() -> Result<()> {
         });
     });
     let app = KaisekiApp { args };
-    create_ui(app);
+    create_ui(app)?;
     let _ = emulator_thread.join();
     Ok(())
 }
