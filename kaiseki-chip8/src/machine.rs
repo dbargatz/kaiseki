@@ -106,13 +106,13 @@ impl Chip8Machine {
         // osc <----clock_bus----> cpu
         // cpu <---memory_bus----> rom[0x0000 - 0x01FF]
         // cpu <---memory_bus----> ram[0x0200 - 0x0FFF]
-        // cpu <---memory_bus----> display[0x1000 - 0x18FF]
+        // cpu <---memory_bus----> display[0x1000 - 0x1100]
 
         let (_, _) = clock_bus.connect(osc.id(), cpu.id())?;
 
         memory_bus.map(0x0000..=0x01FF, interpreter_rom.clone())?;
         memory_bus.map(0x0200..=0x0FFF, ram.clone())?;
-        memory_bus.map(0x1000..=0x17FF, display.clone())?;
+        memory_bus.map(0x1000..=0x1100, display.clone())?;
 
         let machine = Chip8Machine {
             id: ComponentId::new("Chip-8 Machine"),
