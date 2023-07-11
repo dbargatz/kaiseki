@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use clap::{Parser, ValueEnum};
 
 use eframe::CreationContext;
-use egui::{ColorImage, TextureOptions, TextureFilter};
+use egui::{ColorImage, TextureFilter, TextureOptions};
 use kaiseki_chip8::machine::Chip8Machine;
 use kaiseki_core::Vex;
 use tokio::sync::oneshot::Sender;
@@ -31,8 +31,10 @@ impl eframe::App for KaisekiApp {
 
         let (width, height, frame) = self.vex.get_frame();
         let image = ColorImage::from_rgb([width, height], &frame);
-        let mut options = TextureOptions::default();
-        options.magnification = TextureFilter::Nearest;
+        let options = TextureOptions {
+            magnification: TextureFilter::Nearest,
+            minification: TextureFilter::Nearest,
+        };
         let texture = ctx.load_texture("display", image, options);
 
         let title = format!("{:?} Display", self.args.machine);
