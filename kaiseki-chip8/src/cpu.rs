@@ -78,17 +78,27 @@ impl Chip8CPU {
         let sprite = self.memory_bus.read(address.into(), length.into()).unwrap();
         let mut pixel_flipped = false;
         for (sprite_row, sprite_byte) in sprite.iter().enumerate() {
-            let display_row = (y_pos + sprite_row) * 8;
-            let display_col = x_pos / 8;
-            let display_byte_idx = display_row + display_col;
-            let display_byte = self.memory_bus.read(0x1000 + display_byte_idx, 1).unwrap()[0];
-            let new_byte = display_byte ^ sprite_byte;
-            if new_byte != display_byte {
-                pixel_flipped = true;
+            let display_row_offset = (y_pos + sprite_row) * 8;
+            for sprite_col in 0..=7 {
+                let sprite_bit = (sprite_byte >> (7 - sprite_col)) & 0x01;
+                // Absolute 0 - 63 column index into the display for the current pixel.
+                let display_col = (x_pos + sprite_col) % 64;
+                // Offset that the column index provides to the final display byte index.
+                let display_col_offset = display_col / 8;
+                let display_byte_idx = display_row_offset + display_col_offset;
+                let display_byte = self.memory_bus.read(0x1000 + display_byte_idx, 1).unwrap()[0];
+                let display_bit_idx = 7 - (display_col % 8);
+                let display_bitmask = 0x01 << display_bit_idx;
+                let display_bit = (display_byte & display_bitmask) >> display_bit_idx;
+                let new_bit = display_bit ^ sprite_bit;
+                if new_bit != display_bit {
+                    pixel_flipped = true;
+                }
+                let new_byte = (display_byte & !display_bitmask) | (new_bit << display_bit_idx);
+                self.memory_bus
+                    .write(0x1000 + display_byte_idx, &[new_byte])
+                    .unwrap();
             }
-            self.memory_bus
-                .write(0x1000 + display_byte_idx, &[new_byte])
-                .unwrap();
         }
         pixel_flipped
     }
