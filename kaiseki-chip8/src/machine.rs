@@ -52,6 +52,28 @@ impl ExecutableComponent for Chip8Machine {
 }
 
 impl Machine for Chip8Machine {
+    fn get_frame(&self) -> Vec<u8> {
+        let mono_frame = self.memory_bus.read(0x1000, 0x800).unwrap();
+        let mut rgb_frame = Vec::new();
+
+        for b in mono_frame {
+            match b {
+                0 => {
+                    rgb_frame.push(0x00);
+                    rgb_frame.push(0x00);
+                    rgb_frame.push(0x00);
+                }
+                _ => {
+                    rgb_frame.push(0xFF);
+                    rgb_frame.push(0xFF);
+                    rgb_frame.push(0xFF);
+                }
+            }
+        }
+
+        rgb_frame
+    }
+
     fn load(&self, file: &str) -> Result<()> {
         tracing::info!("loading Chip-8 program");
         let program = fs::read(file)?;

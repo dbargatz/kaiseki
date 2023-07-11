@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use clap::{Parser, ValueEnum};
 
 use eframe::CreationContext;
+use egui::{ColorImage, TextureOptions};
 use kaiseki_chip8::machine::Chip8Machine;
 use kaiseki_core::Vex;
 use tokio::sync::oneshot::Sender;
@@ -27,10 +28,12 @@ struct KaisekiApp {
 impl eframe::App for KaisekiApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.set_visuals(egui::Visuals::dark());
-        if self.start_tx.is_some() && ctx.frame_nr() > 0 {
-            let start_tx = std::mem::take(&mut self.start_tx).unwrap();
-            let _ = start_tx.send(true);
-        }
+
+        let vex_frame = self.vex.get_frame();
+
+        let image = ColorImage::from_rgb([64, 32], &vex_frame);
+        let options = TextureOptions::default();
+        let texture = ctx.load_texture("display", image, options);
         egui::Window::new("Display")
             .collapsible(false)
             .default_size((64.0 * 8.0, 32.0 * 8.0))
@@ -38,14 +41,29 @@ impl eframe::App for KaisekiApp {
             .show(ctx, |ui| {
                 ui.label(format!("Selected machine: {:?}", self.args.machine));
                 ui.label(format!("Frame number: {:?}", ctx.frame_nr()));
+                ui.image(texture.id(), (64.0 * 8.0, 32.0 * 8.0));
                 ui.allocate_space(ui.available_size());
             });
+
+        if self.start_tx.is_some() && ctx.frame_nr() > 0 {
+            let start_tx = std::mem::take(&mut self.start_tx).unwrap();
+            let _ = start_tx.send(true);
+        }
     }
 }
 
 impl KaisekiApp {
-    pub fn new(_creation_ctx: &CreationContext, args: Args, vex: Vex, start_tx: Sender<bool>) -> Self {
-        Self { args, vex, start_tx: Some(start_tx) }
+    pub fn new(
+        _creation_ctx: &CreationContext,
+        args: Args,
+        vex: Vex,
+        start_tx: Sender<bool>,
+    ) -> Self {
+        Self {
+            args,
+            vex,
+            start_tx: Some(start_tx),
+        }
     }
 }
 

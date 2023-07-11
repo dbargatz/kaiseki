@@ -21,6 +21,10 @@ impl Vex {
 
     pub async fn destroy(&self) {}
 
+    pub fn get_frame(&self) -> Vec<u8> {
+        self.machine.blocking_lock().get_frame()
+    }
+
     pub async fn revert(&self) {}
     pub async fn snapshot(&self) {}
     pub async fn start(&self) -> Result<()> {
