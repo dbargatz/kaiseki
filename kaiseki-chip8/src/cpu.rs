@@ -73,27 +73,22 @@ impl Chip8CPU {
     }
 
     fn draw_sprite(&self, address: u16, length: u8, x_pos: usize, y_pos: usize) -> bool {
+        // TODO: this algorithm doesn't handle wrapping-around of sprites that
+        //       exceed the 64-pixel width.
         let sprite = self.memory_bus.read(address.into(), length.into()).unwrap();
         let mut pixel_flipped = false;
         for (sprite_row, sprite_byte) in sprite.iter().enumerate() {
-            let pixel_y_idx = (y_pos + sprite_row) * 64; // TODO: fix up how width is stored, make const
-            for sprite_col in 0..=7 {
-                let pixel_x_idx = x_pos + sprite_col;
-                let pixel_byte_idx = (pixel_y_idx + pixel_x_idx) / 8;
-                let pixel_bit_idx = (pixel_y_idx + pixel_x_idx) % 8;
-
-                let sprite_bit = (sprite_byte & (0x80 >> sprite_col)) >> (7 - sprite_col);
-                let sprite_mask = sprite_bit << (7 - pixel_bit_idx);
-                let mut pixel_byte = self.memory_bus.read(0x1000 + pixel_byte_idx, 1).unwrap()[0];
-                let prev_value = pixel_byte;
-                pixel_byte ^= sprite_mask;
-                if prev_value != pixel_byte {
-                    pixel_flipped = true;
-                }
-                self.memory_bus
-                    .write(0x1000 + pixel_byte_idx, &[pixel_byte])
-                    .unwrap();
+            let display_row = (y_pos + sprite_row) * 8;
+            let display_col = x_pos / 8;
+            let display_byte_idx = display_row + display_col;
+            let display_byte = self.memory_bus.read(0x1000 + display_byte_idx, 1).unwrap()[0];
+            let new_byte = display_byte ^ sprite_byte;
+            if new_byte != display_byte {
+                pixel_flipped = true;
             }
+            self.memory_bus
+                .write(0x1000 + display_byte_idx, &[new_byte])
+                .unwrap();
         }
         pixel_flipped
     }
