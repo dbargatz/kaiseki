@@ -20,7 +20,7 @@ impl Vex {
 
     pub async fn destroy(&self) {}
 
-    pub fn get_frame(&self) -> Vec<u8> {
+    pub fn get_frame(&self) -> (usize, usize, Vec<u8>) {
         self.machine.get_frame()
     }
 
