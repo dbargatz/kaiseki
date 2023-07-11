@@ -73,8 +73,6 @@ impl Chip8CPU {
     }
 
     fn draw_sprite(&self, address: u16, length: u8, x_pos: usize, y_pos: usize) -> bool {
-        // TODO: this algorithm doesn't handle wrapping-around of sprites that
-        //       exceed the 64-pixel width.
         let sprite = self.memory_bus.read(address.into(), length.into()).unwrap();
         let mut pixel_flipped = false;
         for (sprite_row, sprite_byte) in sprite.iter().enumerate() {
