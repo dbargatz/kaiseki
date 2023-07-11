@@ -16,10 +16,8 @@ pub enum AddressableBusError {
     ComponentReadFailed(ComponentId, usize, usize),
     #[error("component {0} failed to write {2} bytes at address 0x{1:04X}")]
     ComponentWriteFailed(ComponentId, usize, usize),
-    #[error(
-        "cannot map component {0} to {1:?}; conflicts with component {2} already mapped at {3:?}"
-    )]
-    MappingConflict(String, RangeInclusive<usize>, String, RangeInclusive<usize>),
+    #[error("cannot map component {0} to {1:?}; conflicts with already-mapped component {2}")]
+    MappingConflict(ComponentId, RangeInclusive<usize>, ComponentId),
 }
 
 struct AddressableBusState {
@@ -104,10 +102,9 @@ impl AddressableBus {
                 || address_range.contains(existing_range.end())
             {
                 return Err(AddressableBusError::MappingConflict(
-                    component.id().clone().to_string(),
+                    component.id().clone(),
                     address_range,
-                    existing_component.id().clone().to_string(),
-                    existing_range.clone(),
+                    existing_component.id().clone(),
                 ));
             }
         }
@@ -254,12 +251,7 @@ mod tests {
             .expect_err("map() should have failed");
         assert_eq!(
             err,
-            AddressableBusError::MappingConflict(
-                b_id.clone().to_string(),
-                b_range,
-                a_id.clone().to_string(),
-                a_range.clone()
-            )
+            AddressableBusError::MappingConflict(b_id.clone(), b_range, a_id.clone(),)
         );
 
         // Attempt to map a component that overlaps `a`'s range by a single byte at the end.
@@ -269,12 +261,7 @@ mod tests {
             .expect_err("map() should have failed");
         assert_eq!(
             err,
-            AddressableBusError::MappingConflict(
-                b_id.clone(),
-                b_range,
-                a_id.clone(),
-                a_range.clone()
-            )
+            AddressableBusError::MappingConflict(b_id.clone(), b_range, a_id.clone(),)
         );
 
         // Attempt to map a component that completely contains `a`'s range.
@@ -284,12 +271,7 @@ mod tests {
             .expect_err("map() should have failed");
         assert_eq!(
             err,
-            AddressableBusError::MappingConflict(
-                b_id.clone(),
-                b_range,
-                a_id.clone(),
-                a_range.clone()
-            )
+            AddressableBusError::MappingConflict(b_id.clone(), b_range, a_id.clone(),)
         );
 
         // Attempt to map a component that is completely contained within `a`'s range.
@@ -299,12 +281,7 @@ mod tests {
             .expect_err("map() should have failed");
         assert_eq!(
             err,
-            AddressableBusError::MappingConflict(
-                b_id.clone(),
-                b_range,
-                a_id.clone(),
-                a_range.clone()
-            )
+            AddressableBusError::MappingConflict(b_id.clone(), b_range, a_id.clone(),)
         );
 
         // Attempt to map a component that is exactly `a`'s range.
@@ -314,12 +291,7 @@ mod tests {
             .expect_err("map() should have failed");
         assert_eq!(
             err,
-            AddressableBusError::MappingConflict(
-                b_id.clone(),
-                b_range,
-                a_id.clone(),
-                a_range.clone()
-            )
+            AddressableBusError::MappingConflict(b_id.clone(), b_range, a_id.clone(),)
         );
     }
 }
