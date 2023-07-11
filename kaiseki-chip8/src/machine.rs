@@ -37,7 +37,7 @@ impl Component for Chip8Machine {
 
 #[async_trait]
 impl ExecutableComponent for Chip8Machine {
-    async fn start(&mut self) {
+    async fn start(&self) {
         tracing::info!("starting Chip-8 machine");
 
         let mut futures = FuturesUnordered::new();

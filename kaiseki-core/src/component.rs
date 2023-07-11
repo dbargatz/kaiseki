@@ -59,5 +59,5 @@ impl Eq for dyn AddressableComponent + '_ {}
 
 #[async_trait]
 pub trait ExecutableComponent: Component {
-    async fn start(&mut self);
+    async fn start(&self);
 }

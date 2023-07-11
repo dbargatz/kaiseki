@@ -5,6 +5,7 @@ use tokio::sync::Mutex;
 
 use crate::machine::Machine;
 
+#[derive(Clone)]
 pub struct Vex {
     command: String,
     machine: Arc<Mutex<dyn Machine>>,
@@ -23,7 +24,7 @@ impl Vex {
     pub async fn revert(&self) {}
     pub async fn snapshot(&self) {}
     pub async fn start(&self) -> Result<()> {
-        let mut machine = self.machine.lock().await;
+        let machine = self.machine.lock().await;
         machine.load(self.command.as_str())?;
         machine.start().await;
         Ok(())
