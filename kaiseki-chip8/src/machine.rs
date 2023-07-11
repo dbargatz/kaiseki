@@ -52,26 +52,35 @@ impl ExecutableComponent for Chip8Machine {
 }
 
 impl Machine for Chip8Machine {
-    fn get_frame(&self) -> Vec<u8> {
-        let mono_frame = self.memory_bus.read(0x1000, 0x800).unwrap();
+    fn get_frame(&self) -> (usize, usize, Vec<u8>) {
+        let mono_frame = self.memory_bus.read(0x1000, 0x100).unwrap();
         let mut rgb_frame = Vec::new();
 
-        for b in mono_frame {
-            match b {
-                0 => {
-                    rgb_frame.push(0x00);
-                    rgb_frame.push(0x00);
-                    rgb_frame.push(0x00);
-                }
-                _ => {
-                    rgb_frame.push(0xFF);
-                    rgb_frame.push(0xFF);
-                    rgb_frame.push(0xFF);
+        for byte in mono_frame {
+            for bit_idx in 0..=7 {
+                let pixel = (byte >> (7 - bit_idx)) & 0x01;
+                match pixel {
+                    0 => {
+                        rgb_frame.push(0x00);
+                        rgb_frame.push(0x00);
+                        rgb_frame.push(0x00);
+                    }
+                    1 => {
+                        rgb_frame.push(0xFF);
+                        rgb_frame.push(0xFF);
+                        rgb_frame.push(0xFF);
+                    }
+                    _ => {
+                        panic!(
+                            "pixel value is {}; should be single bit, must be 0 or 1!",
+                            pixel
+                        );
+                    }
                 }
             }
         }
 
-        rgb_frame
+        (64, 32, rgb_frame)
     }
 
     fn load(&self, file: &str) -> Result<()> {
