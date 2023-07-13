@@ -23,4 +23,8 @@ kaiseki-core = { path = "kaiseki-core" }
 thiserror = { version = "1" }
 tokio = { version = "1", features = ["full", "tracing"] }
 tracing = { version = "0.1" }
+tracing-flame = { version = "0.2" }
 tracing-subscriber = { version = "0.3" }
+
+[dev-dependencies]
+inferno = "0.11"
