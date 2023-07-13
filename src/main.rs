@@ -6,6 +6,7 @@ use egui::{ColorImage, TextureFilter, TextureOptions};
 use kaiseki_chip8::machine::Chip8Machine;
 use kaiseki_core::Vex;
 use tokio::sync::oneshot::Sender;
+use tracing_flame::FlameLayer;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum SupportedMachines {
@@ -91,7 +92,7 @@ fn create_ui(args: Args, vex: Vex, start_tx: Sender<bool>) -> Result<()> {
 }
 
 fn main() -> Result<()> {
-    config_tracing();
+    let _guard = config_tracing();
 
     let args = Args::parse();
     let machine_type = args.machine;
@@ -128,7 +129,7 @@ fn config_tracing() {
 }
 
 #[cfg(debug_assertions)]
-fn config_tracing() {
+fn config_tracing() -> impl Drop {
     use tracing_subscriber::filter::{EnvFilter, LevelFilter};
     use tracing_subscriber::prelude::*;
 
@@ -140,8 +141,13 @@ fn config_tracing() {
         .compact()
         .with_filter(fmt_filter);
 
+    let (flame_layer, _guard) = FlameLayer::with_file("./tracing.folded").unwrap();
+
     tracing_subscriber::registry()
         .with(console_layer)
         .with(fmt_layer)
+        .with(flame_layer)
         .init();
+
+    _guard
 }
