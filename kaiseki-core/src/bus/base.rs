@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
+use async_trait::async_trait;
 use futures::stream::{FuturesUnordered, StreamExt};
 use thiserror::Error;
 use tokio::time::Instant;
 
-use crate::component::{Component2Id, Component2Ref};
+use crate::component::{Component2, Component2Id, Component2Ref};
 
 #[derive(Debug, Error)]
 pub enum BaseBusError<T: BaseBusMessage> {
@@ -22,7 +23,7 @@ pub enum BaseBusError<T: BaseBusMessage> {
 
 pub type Result<T, U> = std::result::Result<T, BaseBusError<U>>;
 
-pub trait BaseBusMessage: Clone + core::fmt::Debug + Send {}
+pub trait BaseBusMessage: 'static + Clone + core::fmt::Debug + Send {}
 
 #[derive(Clone, Debug)]
 pub enum BaseBusControlMessage<T: BaseBusMessage> {
@@ -49,23 +50,20 @@ type ChannelPair<T> = (
 
 #[derive(Debug)]
 pub struct BaseBus<T: BaseBusMessage> {
+    id: Component2Id,
     clients: HashMap<Component2Id, ChannelPair<T>>,
     owner_receiver: async_channel::Receiver<BaseBusControlMessage<T>>,
 }
 
-impl<T: BaseBusMessage> BaseBus<T> {
-    pub(crate) fn create() -> (BaseBus<T>, async_channel::Sender<BaseBusControlMessage<T>>) {
-        // TODO: how should this channel be bounded?
-        let (owner_sender, owner_receiver) = async_channel::bounded(8);
-        let bus = Self {
-            clients: HashMap::new(),
-            owner_receiver,
-        };
-        (bus, owner_sender)
+#[async_trait]
+impl<T: BaseBusMessage> Component2 for BaseBus<T> {
+    type Ref = BaseBusRef<T>;
+
+    fn id(&self) -> &Component2Id {
+        &self.id
     }
 
-    // TODO: run needs to handle connects/disconnects of clients
-    pub async fn run(&mut self) {
+    async fn run(&mut self) {
         loop {
             // Remove any connected clients with closed receivers before entering the listen phase.
             let dead_clients: Vec<Component2Id> = self
@@ -117,6 +115,20 @@ impl<T: BaseBusMessage> BaseBus<T> {
                 },
             }
         }
+    }
+}
+
+impl<T: BaseBusMessage> BaseBus<T> {
+    pub fn create(id: Component2Id) -> BaseBusRef<T> {
+        // TODO: how should this channel be bounded?
+        let (owner_sender, owner_receiver) = async_channel::bounded(8);
+        let mut bus = Self {
+            id,
+            clients: HashMap::new(),
+            owner_receiver,
+        };
+        tokio::spawn(async move { bus.run().await });
+        <BaseBus<T> as Component2>::Ref::new(&id, owner_sender)
     }
 
     pub async fn broadcast(&self, sender_id: &Component2Id, msg: T) -> Result<(), T> {
