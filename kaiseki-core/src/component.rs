@@ -34,6 +34,8 @@ impl ComponentId {
     }
 }
 
+pub type Component2Id = usize;
+
 pub trait Component: 'static + Send + Sync {
     fn id(&self) -> &ComponentId;
 }
@@ -60,4 +62,39 @@ impl Eq for dyn AddressableComponent + '_ {}
 #[async_trait]
 pub trait ExecutableComponent: Component {
     async fn start(&self);
+}
+
+#[async_trait]
+pub trait Component2 {
+    type Ref;
+
+    fn id(&self) -> &Component2Id;
+    async fn run(&mut self);
+}
+
+#[derive(Debug)]
+pub struct Component2Ref<T> {
+    id: Component2Id,
+    ref_sender: async_channel::Sender<T>,
+}
+
+impl<T> Component2Ref<T> {
+    pub fn id(&self) -> &Component2Id {
+        &self.id
+    }
+
+    pub fn new(id: &Component2Id, ref_sender: async_channel::Sender<T>) -> Self {
+        Self {
+            id: *id,
+            ref_sender,
+        }
+    }
+
+    pub fn send_blocking(&self, msg: T) {
+        self.ref_sender.send_blocking(msg).unwrap()
+    }
+
+    pub async fn send(&self, msg: T) {
+        self.ref_sender.send(msg).await.unwrap()
+    }
 }

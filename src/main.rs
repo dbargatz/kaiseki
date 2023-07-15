@@ -1,10 +1,12 @@
+use std::time::Duration;
+
 use anyhow::{anyhow, Result};
 use clap::{Parser, ValueEnum};
 
 use eframe::CreationContext;
 use egui::{ColorImage, TextureFilter, TextureOptions};
 use kaiseki_chip8::machine::Chip8Machine;
-use kaiseki_core::Vex;
+use kaiseki_core::{Clock2, ClockBus, Vex};
 use tokio::sync::oneshot::Sender;
 use tracing_flame::FlameLayer;
 
@@ -110,6 +112,15 @@ fn main() -> Result<()> {
     let emulator_thread = std::thread::spawn(move || {
         let runtime = create_tokio_runtime();
         runtime.block_on(async {
+            {
+                let bus = ClockBus::create(1);
+                let clock = Clock2::create(2, &bus, 500, 1.0);
+                clock.start().await;
+                tokio::time::sleep(Duration::from_secs(3)).await;
+                clock.stop().await;
+            }
+
+            tokio::time::sleep(Duration::from_secs(10)).await;
             let _ = start_rx.await;
             guest.start().await.unwrap();
         });
