@@ -6,7 +6,7 @@ use clap::{Parser, ValueEnum};
 use eframe::CreationContext;
 use egui::{ColorImage, TextureFilter, TextureOptions};
 use kaiseki_chip8::machine::Chip8Machine;
-use kaiseki_core::{Clock2, ClockBus, Vex};
+use kaiseki_core::{Clock2, ClockBus, Mock, Vex};
 use tokio::sync::oneshot::Sender;
 use tracing_flame::FlameLayer;
 
@@ -115,12 +115,12 @@ fn main() -> Result<()> {
             {
                 let bus = ClockBus::create(1);
                 let clock = Clock2::create(2, &bus, 500, 1.0);
-                clock.start().await;
-                tokio::time::sleep(Duration::from_secs(3)).await;
-                clock.stop().await;
+                let _mock1 = Mock::create(3, &bus, 0.5);
+                let _mock2 = Mock::create(4, &bus, 0.25);
+                clock.run_cycles(100_000).await;
             }
 
-            tokio::time::sleep(Duration::from_secs(10)).await;
+            tokio::time::sleep(Duration::from_secs(1000)).await;
             let _ = start_rx.await;
             guest.start().await.unwrap();
         });

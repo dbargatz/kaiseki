@@ -19,6 +19,12 @@ pub enum BaseBusError<T: BaseBusMessage> {
         to: Component2Id,
         source: async_channel::SendError<BaseBusControlMessage<T>>,
     },
+    #[error("could not send request message from component {from} to component {to}")]
+    RequestFailure {
+        from: Component2Id,
+        to: Component2Id,
+        source: async_channel::SendError<BaseBusControlMessage<T>>,
+    },
 }
 
 pub type Result<T, U> = std::result::Result<T, BaseBusError<U>>;
@@ -39,6 +45,11 @@ pub enum BaseBusControlMessage<T: BaseBusMessage> {
         sender_id: Component2Id,
         response_sender: async_channel::Sender<Result<(), T>>,
     },
+    // Request {
+    //     sender_id: Component2Id,
+    //     message: T,
+    //     response_sender: async_channel::Sender<Result<T, T>>,
+    // }
 }
 
 impl<T: BaseBusMessage> BaseBusMessage for BaseBusControlMessage<T> {}
@@ -107,6 +118,10 @@ impl<T: BaseBusMessage> Component2 for BaseBus<T> {
                             let response = self.disconnect(&sender_id);
                             response_sender.send(response).await.unwrap();
                         },
+                        // Ok(BaseBusControlMessage::Request { sender_id, message, response_sender }) => {
+                        //     let response = self.request(&sender_id, message).await;
+                        //     response_sender.send(response).await.unwrap();
+                        // },
                     };
                 },
                 else => {
@@ -121,14 +136,14 @@ impl<T: BaseBusMessage> Component2 for BaseBus<T> {
 impl<T: BaseBusMessage> BaseBus<T> {
     pub fn create(id: Component2Id) -> BaseBusRef<T> {
         // TODO: how should this channel be bounded?
-        let (owner_sender, owner_receiver) = async_channel::bounded(8);
+        let (owner_sender, owner_receiver) = async_channel::bounded(1);
         let mut bus = Self {
             id,
             clients: HashMap::new(),
-            owner_receiver,
+            owner_receiver: owner_receiver.clone(),
         };
         tokio::spawn(async move { bus.run().await });
-        <BaseBus<T> as Component2>::Ref::new(&id, owner_sender)
+        <BaseBus<T> as Component2>::Ref::new(&id, owner_receiver, owner_sender)
     }
 
     pub async fn broadcast(&self, sender_id: &Component2Id, msg: T) -> Result<(), T> {
@@ -155,7 +170,7 @@ impl<T: BaseBusMessage> BaseBus<T> {
             };
         }
         let send_duration = Instant::now() - send_start;
-        tracing::info!(
+        tracing::trace!(
             "broadcast took {}ns to send to {} client(s)",
             send_duration.as_nanos(),
             self.clients.len()
@@ -163,16 +178,59 @@ impl<T: BaseBusMessage> BaseBus<T> {
         result
     }
 
+    // async fn request(&mut self, sender_id: &Component2Id, msg: T) -> Result<T, T> {
+    //     let mut result = Ok(());
+    //     let mut recv_futures = FuturesUnordered::new();
+    //     let send_start = Instant::now();
+    //     for (id, (sender, _)) in self.clients.iter() {
+    //         if id == sender_id {
+    //             continue;
+    //         }
+
+    //         let (response_sender, response_receiver) = async_channel::bounded(1);
+    //         let request = BaseBusControlMessage::Request {
+    //             sender_id: *sender_id,
+    //             message: msg.clone(),
+    //             response_sender,
+    //         };
+    //         if let Err(err) = sender.send(request).await {
+    //             if result.is_ok() {
+    //                 let new_err = BaseBusError::RequestFailure {
+    //                     from: *sender_id,
+    //                     to: *id,
+    //                     source: err,
+    //                 };
+    //                 result = Err(new_err);
+    //             }
+    //         };
+    //         recv_futures.push(async move { response_receiver.recv().await });
+    //     }
+
+    //     let send_duration = Instant::now() - send_start;
+    //     let recv_start = Instant::now();
+
+    //     while let Some(result) = recv_futures.next().await {
+    //         tracing::info!("received result: {:?}", result);
+    //     }
+    //     let recv_duration = Instant::now() - recv_start;
+    //     tracing::info!(
+    //         "request took {}ns to send requests and {}ns to recv responses from {} clients",
+    //         send_duration.as_nanos(),
+    //         recv_duration.as_nanos(),
+    //         self.clients.len()
+    //     );
+    // }
+
     pub fn connect(&mut self, component_id: &Component2Id) -> Result<BaseBusRef<T>, T> {
         if self.clients.contains_key(component_id) {
             return Err(BaseBusError::AlreadyConnected(*component_id));
         }
 
         // TODO: how should this channel be bounded?
-        let (ref_sender, ref_receiver) = async_channel::bounded(8);
+        let (ref_sender, ref_receiver) = async_channel::bounded(1);
         self.clients
-            .insert(*component_id, (ref_sender.clone(), ref_receiver));
-        Ok(BaseBusRef::new(component_id, ref_sender))
+            .insert(*component_id, (ref_sender.clone(), ref_receiver.clone()));
+        Ok(BaseBusRef::new(component_id, ref_receiver, ref_sender))
     }
 
     pub fn disconnect(&mut self, component_id: &Component2Id) -> Result<(), T> {
@@ -216,5 +274,18 @@ impl<T: BaseBusMessage> BaseBusRef<T> {
         };
         self.send(msg).await;
         response_receiver.recv().await.unwrap().unwrap()
+    }
+
+    pub async fn listen(&self) -> T {
+        match self.recv().await {
+            BaseBusControlMessage::Broadcast {
+                sender_id: _,
+                message,
+            } => message,
+            msg => panic!(
+                "bus ref should not have gotten a control message of type {:#?}",
+                msg
+            ),
+        }
     }
 }

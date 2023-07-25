@@ -75,6 +75,7 @@ pub trait Component2 {
 #[derive(Debug)]
 pub struct Component2Ref<T> {
     id: Component2Id,
+    ref_receiver: async_channel::Receiver<T>,
     ref_sender: async_channel::Sender<T>,
 }
 
@@ -83,9 +84,14 @@ impl<T> Component2Ref<T> {
         &self.id
     }
 
-    pub fn new(id: &Component2Id, ref_sender: async_channel::Sender<T>) -> Self {
+    pub fn new(
+        id: &Component2Id,
+        ref_receiver: async_channel::Receiver<T>,
+        ref_sender: async_channel::Sender<T>,
+    ) -> Self {
         Self {
             id: *id,
+            ref_receiver,
             ref_sender,
         }
     }
@@ -96,5 +102,9 @@ impl<T> Component2Ref<T> {
 
     pub async fn send(&self, msg: T) {
         self.ref_sender.send(msg).await.unwrap()
+    }
+
+    pub async fn recv(&self) -> T {
+        self.ref_receiver.recv().await.unwrap()
     }
 }

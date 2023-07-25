@@ -17,6 +17,8 @@ pub type ClockBusRef = BaseBusRef<ClockBusMessage>;
 
 impl ClockBusRef {
     pub async fn start_cycle(&self, cycle_num: usize) {
-        self.broadcast(ClockBusMessage::StartCycle(cycle_num)).await
+        tracing::info!("starting cycle {}", cycle_num);
+        self.broadcast(ClockBusMessage::StartCycle(cycle_num)).await;
+        tracing::info!("ending cycle {}", cycle_num);
     }
 }

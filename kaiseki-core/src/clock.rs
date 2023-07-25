@@ -22,6 +22,7 @@ impl ClockMetrics {
 }
 
 pub enum Clock2Message {
+    RunCycles(usize),
     StartClock,
     StopClock,
 }
@@ -58,6 +59,23 @@ impl Component2 for Clock2 {
             tokio::select! {
                 res = receiver_fut, if !ref_receiver.is_closed() => {
                     match res {
+                        Ok(Clock2Message::RunCycles(num_cycles)) => {
+                            if self.running {
+                                tracing::warn!("cannot run cycles, clock already running");
+                                continue
+                            }
+                            self.running = true;
+                            self.metrics.start_time = Instant::now();
+                            self.metrics.stop_time = None;
+                            for i in 0..num_cycles {
+                                self.bus.start_cycle(i).await;
+                                tokio::time::sleep(period).await;
+                            }
+                            self.running = false;
+                            self.metrics.stop_time = Some(Instant::now());
+                            let duration = Instant::now() - self.metrics.start_time;
+                            tracing::info!("took {:0.5}seconds to run {} cycles", duration.as_secs_f32(), num_cycles);
+                        },
                         Ok(Clock2Message::StartClock) => {
                             if self.running {
                                 tracing::warn!("cannot start clock, already running");
@@ -81,6 +99,7 @@ impl Component2 for Clock2 {
                     }
                 },
                 _ = sleep_fut, if self.running => {
+                    self.current_cycle += 1;
                     self.bus.start_cycle(self.current_cycle).await;
                 },
                 else => {
@@ -101,7 +120,7 @@ impl Clock2 {
         multiplier: f64,
     ) -> <Clock2 as Component2>::Ref {
         // TODO: how should this channel be bounded?
-        let (ref_sender, ref_receiver) = async_channel::bounded(8);
+        let (ref_sender, ref_receiver) = async_channel::bounded(1);
         let mut component = Self {
             id,
             bus: bus.connect(id),
@@ -109,17 +128,21 @@ impl Clock2 {
             frequency_hz,
             metrics: ClockMetrics::new(),
             multiplier,
-            ref_receiver,
+            ref_receiver: ref_receiver.clone(),
             running: false,
         };
         tokio::spawn(async move { component.run().await });
-        <Clock2 as Component2>::Ref::new(&id, ref_sender)
+        <Clock2 as Component2>::Ref::new(&id, ref_receiver, ref_sender)
     }
 }
 
 pub type Clock2Ref = Component2Ref<Clock2Message>;
 
 impl Clock2Ref {
+    pub async fn run_cycles(&self, num_cycles: usize) {
+        self.send(Clock2Message::RunCycles(num_cycles)).await
+    }
+
     pub async fn start(&self) {
         self.send(Clock2Message::StartClock).await
     }
