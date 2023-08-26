@@ -1,4 +1,17 @@
 {
+    "cSpell.words": [
+        "bierner",
+        "davidanson",
+        "hexeditor",
+        "serayuzgur",
+        "tamasfe",
+        "vadimcn",
+        "devcontainer",
+        "clippy",
+        "dtolnay",
+        "rustfmt"
+    ],
+
     "rust-analyzer.cargo.features": [
         "tokio"
     ]

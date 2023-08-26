@@ -1,0 +1,24 @@
+{
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+  
+    "customizations": {
+      "vscode": {
+        "extensions": [
+			"bierner.markdown-mermaid",
+			"davidanson.vscode-markdownlint",
+			"ms-vscode.hexeditor",
+			"rust-lang.rust-analyzer",
+			"serayuzgur.crates",
+			"streetsidesoftware.code-spell-checker",
+			"tamasfe.even-better-toml",
+			"vadimcn.vscode-lldb"
+		]
+      }
+    },
+
+	"mounts": [
+		"type=bind,source=/tmp/.X11-unix/,target=/tmp/.X11-unix/"
+	]
+}
