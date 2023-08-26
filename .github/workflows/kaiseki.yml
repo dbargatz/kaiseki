@@ -2,32 +2,21 @@ name: Test
 on: [push, pull_request]
 
 jobs:
-  audit:
-    name: Audit
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
-      - run: |
-          cargo install cargo-audit
-          cargo audit
-
-  lint:
-    name: Lint
+  test:
+    name: Lint, Audit, and Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy,rustfmt
-      - run: |
-          cargo fmt --check
-          cargo clippy
-
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
-      - run: cargo test --all-features
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+      - name: Format
+        run: cargo fmt --check
+      - name: Lint
+        run: cargo clippy
+      - name: Audit
+        run: cargo audit
+      - name: Test
+        run: cargo test --all-features
