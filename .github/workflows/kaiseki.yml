@@ -1,9 +1,9 @@
-name: test suite
+name: Test
 on: [push, pull_request]
 
 jobs:
   lint:
-    name: format/lint
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -15,7 +15,7 @@ jobs:
           cargo clippy
 
   test:
-    name: cargo test
+    name: Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
