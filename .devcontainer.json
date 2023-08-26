@@ -20,9 +20,5 @@
 
 	"mounts": [
 		"type=bind,source=/tmp/.X11-unix/,target=/tmp/.X11-unix/"
-	],
-
-	"runArgs": [
-		"--net=host"
 	]
 }
