@@ -10,5 +10,9 @@
         "clippy",
         "dtolnay",
         "rustfmt"
+    ],
+
+    "rust-analyzer.cargo.features": [
+        "tokio"
     ]
 }
