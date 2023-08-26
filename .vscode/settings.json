@@ -9,5 +9,8 @@
         "vadimcn",
         // General development-related words.
         "devcontainer",
+        "clippy",
+        "dtolnay",
+        "rustfmt"
     ]
 }
