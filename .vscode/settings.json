@@ -1,13 +1,11 @@
 {
     "cSpell.words": [
-        // These words are all from VSCode extensions in the devcontainer.json.
         "bierner",
         "davidanson",
         "hexeditor",
         "serayuzgur",
         "tamasfe",
         "vadimcn",
-        // General development-related words.
         "devcontainer",
         "clippy",
         "dtolnay",
