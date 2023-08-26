@@ -19,6 +19,9 @@ RUN set -x \
 RUN set -x \
     && apt-get update --yes  \
     && apt-get install --yes --no-install-recommends \
+        # In theory, egui should only require libgtk-3-0 (not the dev package),
+        # but using the non-dev package we get no UI and the "NoGlutinConfigs"
+        # error, as described here: https://github.com/emilk/egui/issues/3174
         libgtk-3-dev   \
         libxcursor1    \
         libxrandr2     \
