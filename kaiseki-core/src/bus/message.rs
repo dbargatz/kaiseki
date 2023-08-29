@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use std::fmt;
 use std::sync::{Arc, RwLock};
 
-use anyhow::Result;
 use async_channel::{Receiver, Sender, TryRecvError};
 use thiserror::Error;
 
@@ -22,6 +21,8 @@ pub enum MessageBusError {
     #[error("no senders connected for receiver {0}")]
     NoSendersToReceiver(ComponentId),
 }
+
+pub type Result<T> = std::result::Result<T, MessageBusError>;
 
 struct MessageEnvelope<M: BusMessage> {
     pub response_tx: Option<oneshot::Sender<M>>,
@@ -49,19 +50,19 @@ impl<M: BusMessage> fmt::Debug for MessageBusConnection<M> {
 }
 
 impl<M: BusMessage> MessageBusConnection<M> {
-    pub async fn recv(&self) -> Result<(M, Option<oneshot::Sender<M>>), MessageBusError> {
+    pub async fn recv(&self) -> Result<(M, Option<oneshot::Sender<M>>)> {
         self.bus.recv(&self.component_id).await
     }
 
-    pub async fn request(&self, request: M) -> Result<M, MessageBusError> {
+    pub async fn request(&self, request: M) -> Result<M> {
         self.bus.request(&self.component_id, request).await
     }
 
-    pub async fn send(&self, message: M) -> Result<(), MessageBusError> {
+    pub async fn send(&self, message: M) -> Result<()> {
         self.bus.send(&self.component_id, message).await
     }
 
-    pub fn try_recv(&self) -> Result<(M, Option<oneshot::Sender<M>>), MessageBusError> {
+    pub fn try_recv(&self) -> Result<(M, Option<oneshot::Sender<M>>)> {
         self.bus.try_recv(&self.component_id)
     }
 }
@@ -120,10 +121,7 @@ impl<M: BusMessage> MessageBus<M> {
         Ok((sender_connection, receiver_connection))
     }
 
-    pub async fn recv(
-        &self,
-        receiver_id: &ComponentId,
-    ) -> Result<(M, Option<oneshot::Sender<M>>), MessageBusError> {
+    pub async fn recv(&self, receiver_id: &ComponentId) -> Result<(M, Option<oneshot::Sender<M>>)> {
         let receivers;
         {
             let state = self.state.read().unwrap();
@@ -160,7 +158,7 @@ impl<M: BusMessage> MessageBus<M> {
         }
     }
 
-    pub async fn request(&self, sender_id: &ComponentId, request: M) -> Result<M, MessageBusError> {
+    pub async fn request(&self, sender_id: &ComponentId, request: M) -> Result<M> {
         let senders;
         {
             let state = self.state.read().unwrap();
@@ -212,7 +210,7 @@ impl<M: BusMessage> MessageBus<M> {
         }
     }
 
-    pub async fn send(&self, sender_id: &ComponentId, message: M) -> Result<(), MessageBusError> {
+    pub async fn send(&self, sender_id: &ComponentId, message: M) -> Result<()> {
         let senders;
         {
             let state = self.state.read().unwrap();
@@ -241,10 +239,7 @@ impl<M: BusMessage> MessageBus<M> {
         Ok(())
     }
 
-    pub fn try_recv(
-        &self,
-        receiver_id: &ComponentId,
-    ) -> Result<(M, Option<oneshot::Sender<M>>), MessageBusError> {
+    pub fn try_recv(&self, receiver_id: &ComponentId) -> Result<(M, Option<oneshot::Sender<M>>)> {
         let receivers;
         {
             let state = self.state.read().unwrap();

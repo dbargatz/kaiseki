@@ -1,22 +1,25 @@
 use std::sync::Arc;
 use std::u8;
 
-use anyhow::Result;
 use async_trait::async_trait;
+use thiserror::Error;
 use tokio::sync::RwLock;
 
 use kaiseki_core::{
-    AddressableBus, Component, ComponentId, ExecutableComponent, OscillatorBus,
-    OscillatorBusMessage,
+    AddressableBus, AddressableComponent, AddressableComponentError, Component, ComponentId,
+    ExecutableComponent, OscillatorBus, OscillatorBusMessage,
 };
 
 use super::registers::Chip8Registers;
 use super::stack::Chip8Stack;
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Error, PartialEq)]
 pub enum Chip8CpuError {
-    LoadError,
+    #[error("failed to fetch next instruction")]
+    InstructionFetch(#[from] AddressableComponentError),
 }
+
+pub type Result<T> = std::result::Result<T, Chip8CpuError>;
 
 #[derive(Debug)]
 pub struct Chip8CPU {
@@ -101,7 +104,7 @@ impl Chip8CPU {
         pixel_flipped
     }
 
-    async fn fetch(&self, address: u16) -> Result<u16> {
+    fn fetch(&self, address: u16) -> Result<u16> {
         let bytes = self.memory_bus.read(address as usize, 2)?;
         let slice: [u8; 2] = bytes[0..2]
             .try_into()
@@ -112,7 +115,7 @@ impl Chip8CPU {
     async fn execute_cycle(&self, cycle_number: usize) -> Result<()> {
         let mut regs = self.regs.write().await;
 
-        let opcode = self.fetch(regs.PC).await?;
+        let opcode = self.fetch(regs.PC)?;
         let embedded_address = opcode & 0x0FFF;
         let embedded_byte = (opcode & 0x00FF) as u8;
         let embedded_nybble = (opcode & 0x000F) as u8;

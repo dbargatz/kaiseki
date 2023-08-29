@@ -1,8 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use anyhow::Result;
-
-use kaiseki_core::{AddressableBus, AddressableComponent, Component, ComponentId};
+use kaiseki_core::{AddressableBus, AddressableComponent, Component, ComponentId, Result};
 
 #[derive(Clone, Debug)]
 pub struct MonochromeDisplayState<const N: usize> {
