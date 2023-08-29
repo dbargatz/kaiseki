@@ -1,6 +1,5 @@
 mod bus;
 mod component;
-mod display;
 mod machine;
 mod oscillator;
 mod storage;
