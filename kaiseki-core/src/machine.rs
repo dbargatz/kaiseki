@@ -1,5 +1,3 @@
-use std::io;
-
 use thiserror::Error;
 
 use crate::{
@@ -7,14 +5,12 @@ use crate::{
     MessageBusError,
 };
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq)]
 pub enum MachineError {
     #[error(transparent)]
     Addressable(#[from] AddressableComponentError),
     #[error(transparent)]
     MessageBus(#[from] MessageBusError),
-    #[error(transparent)]
-    Io(#[from] io::Error),
     #[error("failed to load '{0}' into memory at 0x{1:04X}")]
     FileLoad(String, usize),
 }

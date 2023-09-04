@@ -85,7 +85,8 @@ impl Machine for Chip8Machine {
 
     fn load(&self, file: &str) -> machine::Result<()> {
         tracing::info!("loading Chip-8 program");
-        let program = fs::read(file)?;
+        let program = fs::read(file)
+            .map_err(|_| machine::MachineError::FileLoad(String::from(file), 0x200))?;
         self.memory_bus.write(0x200, &program)?;
         Ok(())
     }
