@@ -1,6 +1,5 @@
 use std::fmt;
 
-use anyhow::Result;
 use async_trait::async_trait;
 
 use crate::bus::{BusMessage, MessageBus, MessageBusError};
