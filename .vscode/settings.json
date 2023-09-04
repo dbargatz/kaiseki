@@ -1,14 +1,23 @@
 {
     "cSpell.words": [
         "bierner",
+        "bitmask",
+        "clippy",
         "davidanson",
+        "devcontainer",
+        "dtolnay",
+        "eframe",
+        "egui",
         "hexeditor",
+        "kaiseki",
+        "nanos",
+        "oneshot",
+        "rangemap",
+        "regs",
+        "rustfmt",
         "serayuzgur",
         "tamasfe",
-        "vadimcn",
-        "devcontainer",
-        "clippy",
-        "dtolnay",
-        "rustfmt"
+        "thiserror",
+        "vadimcn"
     ]
 }

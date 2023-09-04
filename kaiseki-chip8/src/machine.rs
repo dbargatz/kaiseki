@@ -1,11 +1,11 @@
 use std::fs;
 
-use anyhow::Result;
 use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, StreamExt};
 
+use kaiseki_core::machine::{self, Machine};
 use kaiseki_core::{
-    AddressableBus, Component, ComponentId, ExecutableComponent, Machine, Oscillator,
+    AddressableBus, AddressableComponent, Component, ComponentId, ExecutableComponent, Oscillator,
     OscillatorBus, RAM, ROM,
 };
 
@@ -83,16 +83,17 @@ impl Machine for Chip8Machine {
         (64, 32, rgb_frame)
     }
 
-    fn load(&self, file: &str) -> Result<()> {
+    fn load(&self, file: &str) -> machine::Result<()> {
         tracing::info!("loading Chip-8 program");
-        let program = fs::read(file)?;
+        let program = fs::read(file)
+            .map_err(|_| machine::MachineError::FileLoad(String::from(file), 0x200))?;
         self.memory_bus.write(0x200, &program)?;
         Ok(())
     }
 }
 
 impl Chip8Machine {
-    pub fn new() -> Result<Chip8Machine> {
+    pub fn new() -> machine::Result<Chip8Machine> {
         let clock_bus = OscillatorBus::new("clock bus");
         let memory_bus = AddressableBus::new("memory bus");
 

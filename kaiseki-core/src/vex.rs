@@ -1,8 +1,16 @@
 use std::sync::Arc;
 
-use anyhow::Result;
+use thiserror::Error;
 
-use crate::machine::Machine;
+use crate::machine::{Machine, MachineError};
+
+#[derive(Debug, Error, PartialEq)]
+pub enum VexError {
+    #[error(transparent)]
+    Load(#[from] MachineError),
+}
+
+pub type Result<T> = std::result::Result<T, VexError>;
 
 #[derive(Clone)]
 pub struct Vex {

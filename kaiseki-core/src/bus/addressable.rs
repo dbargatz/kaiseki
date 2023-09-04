@@ -2,23 +2,11 @@ use std::fmt;
 use std::ops::RangeInclusive;
 use std::sync::{Arc, RwLock};
 
-use anyhow::Result;
 use rangemap::RangeInclusiveMap;
-use thiserror::Error;
 
-use crate::component::{AddressableComponent, Component, ComponentId};
-
-#[derive(Debug, Error, PartialEq)]
-pub enum AddressableBusError {
-    #[error("no component is mapped at address 0x{0:04X}")]
-    NoComponentMappedAtAddress(usize),
-    #[error("component {0} failed to read {2} bytes at address 0x{1:04X}")]
-    ComponentReadFailed(ComponentId, usize, usize),
-    #[error("component {0} failed to write {2} bytes at address 0x{1:04X}")]
-    ComponentWriteFailed(ComponentId, usize, usize),
-    #[error("cannot map component {0} to {1:?}; conflicts with already-mapped component {2}")]
-    MappingConflict(ComponentId, RangeInclusive<usize>, ComponentId),
-}
+use crate::component::{
+    AddressableComponent, AddressableComponentError, Component, ComponentId, Result,
+};
 
 struct AddressableBusState {
     mappings: RangeInclusiveMap<usize, Arc<dyn AddressableComponent>>,
@@ -66,6 +54,44 @@ impl Component for AddressableBus {
     }
 }
 
+impl AddressableComponent for AddressableBus {
+    fn read(&self, address: usize, length: usize) -> Result<Vec<u8>> {
+        tracing::trace!("bus: reading {} bytes from 0x{:08X}", length, address);
+        let state = self.state.read().unwrap();
+        let (range, component) = state.mappings.get_key_value(&address).ok_or(
+            AddressableComponentError::NoComponentMappedAtAddress(address),
+        )?;
+
+        let adjusted_address = address - range.start();
+        match component.read(adjusted_address, length) {
+            Ok(bytes) => Ok(bytes),
+            Err(_) => Err(AddressableComponentError::ComponentReadFailed(
+                component.id().clone(),
+                address,
+                length,
+            )),
+        }
+    }
+
+    fn write(&self, address: usize, data: &[u8]) -> Result<()> {
+        tracing::trace!("bus: writing {} bytes to 0x{:08X}", data.len(), address);
+        let state = self.state.read().unwrap();
+        let (range, component) = state.mappings.get_key_value(&address).ok_or(
+            AddressableComponentError::NoComponentMappedAtAddress(address),
+        )?;
+
+        let adjusted_address = address - range.start();
+        match component.write(adjusted_address, data) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(AddressableComponentError::ComponentWriteFailed(
+                component.id().clone(),
+                address,
+                data.len(),
+            )),
+        }
+    }
+}
+
 impl AddressableBus {
     pub fn new(name: &str) -> Self {
         Self {
@@ -78,7 +104,7 @@ impl AddressableBus {
         &self,
         address_range: RangeInclusive<usize>,
         component: impl AddressableComponent,
-    ) -> Result<(), AddressableBusError> {
+    ) -> Result<()> {
         let mut state = self.state.write().unwrap();
 
         // Ensure the new component mapping doesn't overlap with any components already mapped-in.
@@ -101,7 +127,7 @@ impl AddressableBus {
                 || address_range.contains(existing_range.start())
                 || address_range.contains(existing_range.end())
             {
-                return Err(AddressableBusError::MappingConflict(
+                return Err(AddressableComponentError::MappingConflict(
                     component.id().clone(),
                     address_range,
                     existing_component.id().clone(),
@@ -114,61 +140,17 @@ impl AddressableBus {
         state.mappings.insert(address_range, Arc::new(component));
         Ok(())
     }
-
-    pub fn read(&self, address: usize, length: usize) -> Result<Vec<u8>, AddressableBusError> {
-        tracing::trace!("bus: reading {} bytes from 0x{:08X}", length, address);
-        let state = self.state.read().unwrap();
-        let (range, component) = state
-            .mappings
-            .get_key_value(&address)
-            .ok_or(AddressableBusError::NoComponentMappedAtAddress(address))?;
-
-        let adjusted_address = address - range.start();
-        match component.read(adjusted_address, length) {
-            Ok(bytes) => Ok(bytes),
-            Err(_) => {
-                let bus_err = AddressableBusError::ComponentReadFailed(
-                    component.id().clone(),
-                    address,
-                    length,
-                );
-                Err(bus_err)
-            }
-        }
-    }
-
-    pub fn write(&self, address: usize, data: &[u8]) -> Result<(), AddressableBusError> {
-        tracing::trace!("bus: writing {} bytes to 0x{:08X}", data.len(), address);
-        let state = self.state.read().unwrap();
-        let (range, component) = state
-            .mappings
-            .get_key_value(&address)
-            .ok_or(AddressableBusError::NoComponentMappedAtAddress(address))?;
-
-        let adjusted_address = address - range.start();
-        match component.write(adjusted_address, data) {
-            Ok(_) => Ok(()),
-            Err(_) => {
-                let bus_err = AddressableBusError::ComponentWriteFailed(
-                    component.id().clone(),
-                    address,
-                    data.len(),
-                );
-                Err(bus_err)
-            }
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use std::sync::{Arc, RwLock};
 
-    use anyhow::Result;
     use rand::Rng;
 
     use super::{
-        AddressableBus, AddressableBusError, AddressableComponent, Component, ComponentId,
+        AddressableBus, AddressableComponent, AddressableComponentError, Component, ComponentId,
+        Result,
     };
 
     #[derive(Clone)]
@@ -229,7 +211,9 @@ mod tests {
         let ([a, _, _], bus) = setup();
         assert_eq!(
             bus.read(0x0000, 4),
-            Err(AddressableBusError::NoComponentMappedAtAddress(0x0000))
+            Err(AddressableComponentError::NoComponentMappedAtAddress(
+                0x0000
+            ))
         );
 
         bus.map(0x0000..=0x0FFF, a.clone()).unwrap();
@@ -251,7 +235,7 @@ mod tests {
             .expect_err("map() should have failed");
         assert_eq!(
             err,
-            AddressableBusError::MappingConflict(b_id.clone(), b_range, a_id.clone(),)
+            AddressableComponentError::MappingConflict(b_id.clone(), b_range, a_id.clone(),)
         );
 
         // Attempt to map a component that overlaps `a`'s range by a single byte at the end.
@@ -261,7 +245,7 @@ mod tests {
             .expect_err("map() should have failed");
         assert_eq!(
             err,
-            AddressableBusError::MappingConflict(b_id.clone(), b_range, a_id.clone(),)
+            AddressableComponentError::MappingConflict(b_id.clone(), b_range, a_id.clone(),)
         );
 
         // Attempt to map a component that completely contains `a`'s range.
@@ -271,7 +255,7 @@ mod tests {
             .expect_err("map() should have failed");
         assert_eq!(
             err,
-            AddressableBusError::MappingConflict(b_id.clone(), b_range, a_id.clone(),)
+            AddressableComponentError::MappingConflict(b_id.clone(), b_range, a_id.clone(),)
         );
 
         // Attempt to map a component that is completely contained within `a`'s range.
@@ -281,7 +265,7 @@ mod tests {
             .expect_err("map() should have failed");
         assert_eq!(
             err,
-            AddressableBusError::MappingConflict(b_id.clone(), b_range, a_id.clone(),)
+            AddressableComponentError::MappingConflict(b_id.clone(), b_range, a_id.clone(),)
         );
 
         // Attempt to map a component that is exactly `a`'s range.
@@ -291,7 +275,7 @@ mod tests {
             .expect_err("map() should have failed");
         assert_eq!(
             err,
-            AddressableBusError::MappingConflict(b_id.clone(), b_range, a_id.clone(),)
+            AddressableComponentError::MappingConflict(b_id.clone(), b_range, a_id.clone(),)
         );
     }
 }

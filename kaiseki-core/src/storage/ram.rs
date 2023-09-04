@@ -1,8 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use anyhow::Result;
-
-use crate::component::{AddressableComponent, Component, ComponentId};
+use crate::component::{AddressableComponent, Component, ComponentId, Result};
 
 #[derive(Clone, Debug)]
 struct RAMState<const N: usize> {
