@@ -1,5 +1,6 @@
 {
     "cSpell.words": [
+        "addrs",
         "bierner",
         "bitmask",
         "clippy",
@@ -16,8 +17,11 @@
         "regs",
         "rustfmt",
         "serayuzgur",
+        "SKNP",
+        "SUBN",
         "tamasfe",
         "thiserror",
         "vadimcn"
-    ]
+    ],
+    "rust-analyzer.showUnlinkedFileNotification": false
 }
