@@ -1,5 +1,6 @@
 mod bus;
 mod component;
+pub mod isa;
 pub mod machine;
 mod oscillator;
 mod storage;
