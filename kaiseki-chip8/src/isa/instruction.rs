@@ -408,4 +408,3 @@ pub fn decode_one(address: u16, bytes: &[u8]) -> Instruction {
 //         let inst = <Self as Isa>::InstructionSet::disassemble(bytes, self);
 //     }
 // }
-
