@@ -1,0 +1,93 @@
+address_space: 20b
+endianness: little
+
+registers:
+    AL, BL, CL, DL, AH, BH, CH, DH: 8b
+    AX: [AH] [AL]
+    BX: [BH] [BL]
+    CX: [CH] [CL]
+    DX: [DH] [DL]
+    SI, DI: 16b
+
+    IP: 16b
+    BP, SP: 16b
+    CS, DS, ES, SS: 16b
+
+field seg_reg: 2b -> register
+    ?this == 0b00 -> registers.ES
+    ?this == 0b01 -> registers.CS
+    ?this == 0b10 -> registers.SS
+    ?this == 0b11 -> registers.DS
+
+field reg(width:1b): 3b -> register
+    ?width == 0b0 && this == 0b000 -> registers.AL
+    ?width == 0b0 && this == 0b001 -> registers.CL
+    ?width == 0b0 && this == 0b010 -> registers.DL
+    ?width == 0b0 && this == 0b011 -> registers.BL
+    ?width == 0b0 && this == 0b100 -> registers.AH
+    ?width == 0b0 && this == 0b101 -> registers.CH
+    ?width == 0b0 && this == 0b110 -> registers.DH
+    ?width == 0b0 && this == 0b111 -> registers.BH
+    ?width == 0b1 && this == 0b000 -> registers.AX
+    ?width == 0b1 && this == 0b001 -> registers.CX
+    ?width == 0b1 && this == 0b010 -> registers.DX
+    ?width == 0b1 && this == 0b011 -> registers.BX
+    ?width == 0b1 && this == 0b100 -> registers.SP
+    ?width == 0b1 && this == 0b101 -> registers.BP
+    ?width == 0b1 && this == 0b110 -> registers.SI
+    ?width == 0b1 && this == 0b111 -> registers.DI
+
+field rm(mode:2b, width:1b): 3b
+    ?mode == 0b11 -> reg(width)
+
+    ?mode != 0b11 && this == 0b000 -> *(registers.BX + registers.SI + this.displacement(mode))
+    ?mode != 0b11 && this == 0b001 -> *(registers.BX + registers.DI + this.displacement(mode))
+    ?mode != 0b11 && this == 0b010 -> *(registers.BP + registers.SI + this.displacement(mode))
+    ?mode != 0b11 && this == 0b011 -> *(registers.BP + registers.DI + this.displacement(mode))
+    ?mode != 0b11 && this == 0b100 -> *(registers.SI + this.displacement(mode))
+    ?mode != 0b11 && this == 0b101 -> *(registers.DI + this.displacement(mode))
+    ?mode != 0b11 && mode != 0b00 && this == 0b110 -> *(registers.BP + this.displacement(mode))
+    ?mode != 0b11 && this == 0b111 -> *(registers.BX + this.displacement(mode))
+
+    field displacement() -> [] | [u8] | [u16] | [imm16]
+        ?mod == 0b00 && rm == 0b110 -> [imm16]
+        ?mod == 0b00 && rm != 0b110 -> []
+        ?mod == 0b01 -> [u8]
+        ?mod == 0b10 -> [u16]
+        ?mod == 0b11 -> []
+
+field modrm(width:1b): 8b
+    field mod:     this[6..=7]
+    field reg:     this[3..=5] -> reg(width)
+    field yyy:     this[3..=5]
+    field seg_reg: this[3..=4] -> seg_reg()
+    field rm:      this[0..=2] -> rm(mod, width)
+
+    field displacement() -> [] | [u8] | [u16] | [imm16]
+        this.rm.displacement()
+
+field opcode8: 8b:
+    field w: 1b: this[0]
+    field z: 1b: this[0]
+
+    field d: 1b: this[1]
+    field s: 1b: this[1]
+    field v: 1b: this[1]
+
+    field reg: reg(this.w): this[0..=2]
+    field xxx: 3b: this[0..=2]
+
+    field seg_reg: seg_reg(): this[3..=4]
+
+field lock_prefix: 8b
+    ?lock_prefix == 0xF0 -> true
+    ?_ -> false // potential "else" or "base case" format instead of having to specify all cases
+
+MOV {modrm.rm}, {modrm.reg}: [lock_prefix]? [opcode8 == 0x88] [modrm(opcode8.w)] [modrm.displacement(modrm.mode)]
+MOV {modrm.rm}, {modrm.reg}: [lock_prefix]? [opcode8 == 0x89] [modrm(opcode8.w)] [modrm.displacement(modrm.mode)]
+MOV {modrm.reg}, {modrm.rm}: [lock_prefix]? [opcode8 == 0x8A] [modrm(opcode8.w)] [modrm.displacement(modrm.mode)]
+MOV {modrm.reg}, {modrm.rm}: [lock_prefix]? [opcode8 == 0x8B] [modrm(opcode8.w)] [modrm.displacement(modrm.mode)]
+
+Notes:
+    - Still don't like the weird way the displacements are being handled - once as a subfield of modrm, then being used to consume 0/1/2 bytes as a top-level field
+    - Assuming types like u8, u16, i8, i16, bool, etc are builtin and appropriate for the specified endianness

@@ -1,24 +1,33 @@
 {
-    "build": {
-        "dockerfile": "Dockerfile"
-    },
-  
-    "customizations": {
-      "vscode": {
-        "extensions": [
-			"bierner.markdown-mermaid",
-			"davidanson.vscode-markdownlint",
-			"ms-vscode.hexeditor",
-			"rust-lang.rust-analyzer",
-			"serayuzgur.crates",
-			"streetsidesoftware.code-spell-checker",
-			"tamasfe.even-better-toml",
-			"vadimcn.vscode-lldb"
-		]
-      }
-    },
-
-	"mounts": [
-		"type=bind,source=/tmp/.X11-unix/,target=/tmp/.X11-unix/"
-	]
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "bierner.markdown-mermaid",
+        "davidanson.vscode-markdownlint",
+        "GitHub.copilot",
+        "GitHub.vscode-pull-request-github",
+        "ms-vscode.hexeditor",
+        "rust-lang.rust-analyzer",
+        "serayuzgur.crates",
+        "streetsidesoftware.code-spell-checker",
+        "tamasfe.even-better-toml",
+        "vadimcn.vscode-lldb"
+      ]
+    }
+  },
+  // Allows the container to access the X11 display directly, which is required
+  // to show the Kaiseki UI natively. This will fail on non-Linux hosts; there
+  // is a proposal to allow optional bind mounts in devcontainers[1], but it's
+  // not implemented in VSCode yet[2]. To avoid having to comment this out on
+  // macOS and Windows, we use initializeCommand to create this directory on
+  // all platforms.
+  // [1]: https://github.com/devcontainers/spec/issues/132
+  // [2]: https://github.com/microsoft/vscode-remote-release/issues/53221
+  "mounts": [
+    "type=bind,source=/tmp/.X11-unix/,target=/tmp/.X11-unix/"
+  ],
+  "initializeCommand": "mkdir -p /tmp/.X11-unix/"
 }

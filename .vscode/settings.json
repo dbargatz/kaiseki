@@ -6,6 +6,7 @@
         "clippy",
         "davidanson",
         "devcontainer",
+        "devcontainers",
         "dtolnay",
         "eframe",
         "egui",
