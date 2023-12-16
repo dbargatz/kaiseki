@@ -11,3 +11,6 @@ Cargo.lock
 
 # macOS-specific files
 .DS_Store
+
+# Ignore the generated tracing file for flamegraph generation.
+tracing.folded

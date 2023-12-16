@@ -1,6 +1,5 @@
 use std::fmt;
 
-use anyhow::Result;
 use async_trait::async_trait;
 
 use crate::bus::{BusMessage, MessageBus, MessageBusError};
@@ -60,7 +59,7 @@ impl Component for Oscillator {
 
 #[async_trait]
 impl ExecutableComponent for Oscillator {
-    async fn start(&mut self) {
+    async fn start(&self) {
         tracing::info!(
             "starting oscillator with frequency {}hz / period {}ns",
             self.frequency_hz,

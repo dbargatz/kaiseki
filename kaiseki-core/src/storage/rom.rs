@@ -1,8 +1,8 @@
 use std::sync::{Arc, Mutex};
 
-use anyhow::{anyhow, Result};
-
-use crate::component::{AddressableComponent, Component, ComponentId};
+use crate::component::{
+    AddressableComponent, AddressableComponentError, Component, ComponentId, Result,
+};
 
 #[derive(Clone, Debug)]
 struct ROMState<const N: usize> {
@@ -32,8 +32,12 @@ impl<const N: usize> AddressableComponent for ROM<N> {
         Ok(Vec::from(slice))
     }
 
-    fn write(&self, _: usize, _: &[u8]) -> Result<()> {
-        Err(anyhow!("cannot write to ROM"))
+    fn write(&self, address: usize, data: &[u8]) -> Result<()> {
+        Err(AddressableComponentError::ComponentWriteFailed(
+            self.id.clone(),
+            address,
+            data.len(),
+        ))
     }
 }
 
