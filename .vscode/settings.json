@@ -17,8 +17,11 @@
         "regs",
         "rustfmt",
         "serayuzgur",
+        "Sknp",
+        "Subn",
         "tamasfe",
         "thiserror",
         "vadimcn"
-    ]
+    ],
+    "rust-analyzer.showUnlinkedFileNotification": false
 }
