@@ -65,7 +65,7 @@ impl Chip8CPU {
     pub fn new(clock_bus: &OscillatorBus, memory_bus: &AddressableBus, initial_pc: u16) -> Self {
         let id = ComponentId::new("Chip-8 CPU");
         let mut regs = Chip8Registers::new();
-        regs.PC = initial_pc;
+        regs.PC.write(initial_pc);
         Chip8CPU {
             id,
             clock_bus: clock_bus.clone(),
@@ -115,7 +115,7 @@ impl Chip8CPU {
     async fn execute_cycle(&self, cycle_number: usize) -> Result<()> {
         let mut regs = self.regs.write().await;
 
-        let opcode = self.fetch(regs.PC)?;
+        let opcode = self.fetch(regs.PC.read())?;
         let embedded_address = opcode & 0x0FFF;
         let embedded_byte = (opcode & 0x00FF) as u8;
         let embedded_nybble = (opcode & 0x000F) as u8;
@@ -131,30 +131,30 @@ impl Chip8CPU {
                 }
                 0x00EE => {
                     let mut stack = self.stack.write().await;
-                    regs.PC = stack.pop();
+                    regs.PC.write(stack.pop());
                     desc = String::from("return from subroutine");
                 }
                 _ => {
-                    regs.PC = embedded_address;
+                    regs.PC.write(embedded_address);
                     desc = format!(
                         "execute machine language subroutine at 0x{:04X}",
-                        embedded_address
+                        embedded_address,
                     );
                 }
             },
             0x1000..=0x1FFF => {
-                regs.PC = embedded_address;
+                regs.PC.write(embedded_address);
                 desc = format!("jump to address 0x{:04X}", embedded_address);
             }
             0x2000..=0x2FFF => {
                 let mut stack = self.stack.write().await;
-                stack.push(regs.PC + 2);
-                regs.PC = embedded_address;
+                stack.push(regs.PC.read() + 2);
+                regs.PC.write(embedded_address);
                 desc = format!("execute subroutine at address 0x{:04X}", embedded_address);
             }
             0x3000..=0x3FFF => {
                 let vx = regs.get_register_ref(vx_id);
-                if *vx == embedded_byte {
+                if vx.read() == embedded_byte {
                     regs.PC += 4;
                 } else {
                     regs.PC += 2;
@@ -166,7 +166,7 @@ impl Chip8CPU {
             }
             0x4000..=0x4FFF => {
                 let vx = regs.get_register_ref(vx_id);
-                if *vx != embedded_byte {
+                if vx.read() != embedded_byte {
                     regs.PC += 4;
                 } else {
                     regs.PC += 2;
@@ -180,7 +180,7 @@ impl Chip8CPU {
                 0x0 => {
                     let vx = regs.get_register_ref(vx_id);
                     let vy = regs.get_register_ref(vy_id);
-                    if *vx == *vy {
+                    if vx.read() == vy.read() {
                         regs.PC += 4;
                     } else {
                         regs.PC += 2;
@@ -191,110 +191,107 @@ impl Chip8CPU {
             },
             0x6000..=0x6FFF => {
                 let vx = regs.get_register_mut(vx_id);
-                *vx = embedded_byte;
+                vx.write(embedded_byte);
                 regs.PC += 2;
                 desc = format!("store 0x{:02X} in V{}", embedded_byte, vx_id);
             }
             0x7000..=0x7FFF => {
                 let vx = regs.get_register_mut(vx_id);
-                *vx += embedded_byte;
+                vx.write(vx.read() + embedded_byte);
                 regs.PC += 2;
                 desc = format!("add 0x{:02X} to V{}", embedded_byte, vx_id);
             }
             0x8000..=0x8FFF => match embedded_nybble {
                 0x0 => {
-                    let vy = regs.get_register_ref(vy_id);
-                    let vy_value = *vy;
+                    let vy_value = regs.get_register_ref(vy_id).read();
                     let vx = regs.get_register_mut(vx_id);
-                    *vx = vy_value;
+                    vx.write(vy_value);
                     regs.PC += 2;
                     desc = format!("store V{} in V{}", vy_id, vx_id);
                 }
                 0x1 => {
-                    let vy = regs.get_register_ref(vy_id);
-                    let vy_value = *vy;
+                    let vy_value = regs.get_register_ref(vy_id).read();
                     let vx = regs.get_register_mut(vx_id);
-                    *vx |= vy_value;
+                    vx.write(vx.read() | vy_value);
                     regs.PC += 2;
                     desc = format!("store V{} | V{} in V{}", vx_id, vy_id, vx_id);
                 }
                 0x2 => {
-                    let vy = regs.get_register_ref(vy_id);
-                    let vy_value = *vy;
+                    let vy_value = regs.get_register_ref(vy_id).read();
                     let vx = regs.get_register_mut(vx_id);
-                    *vx &= vy_value;
+                    vx.write(vx.read() & vy_value);
                     regs.PC += 2;
                     desc = format!("store V{} & V{} in V{}", vx_id, vy_id, vx_id);
                 }
                 0x3 => {
-                    let vy = regs.get_register_ref(vy_id);
-                    let vy_value = *vy;
+                    let vy_value = regs.get_register_ref(vy_id).read();
                     let vx = regs.get_register_mut(vx_id);
-                    *vx ^= vy_value;
+                    vx.write(vx.read() ^ vy_value);
                     regs.PC += 2;
                     desc = format!("store V{} ^ V{} in V{}", vx_id, vy_id, vx_id);
                 }
                 0x4 => {
-                    let vy = regs.get_register_ref(vy_id);
-                    let vy_value = *vy;
+                    let vy_value: u16 = regs.get_register_ref(vy_id).try_read_as().unwrap();
                     let vx = regs.get_register_mut(vx_id);
-                    let result = *vx as u16 + vy_value as u16;
-                    *vx = result as u8;
+                    let result = vx.read() as u16 + vy_value;
+                    vx.write(result as u8);
                     if result > u8::MAX as u16 {
-                        regs.VF = 0x01;
+                        regs.VF.write(0x01);
                     } else {
-                        regs.VF = 0x00;
+                        regs.VF.write(0x00);
                     }
                     regs.PC += 2;
                     desc = format!("add V{} + V{} with carry", vx_id, vy_id);
                 }
                 0x5 => {
                     let vy = regs.get_register_ref(vy_id);
-                    let vy_value = *vy;
+                    let vy_value = vy.read();
                     let vx = regs.get_register_mut(vx_id);
-                    let borrow = vy_value > *vx;
-                    let result = *vx as u16 - vy_value as u16;
-                    *vx = result as u8;
+                    let vx_value = vx.read();
+                    let borrow = vy_value > vx_value;
+                    let result = vx_value as u16 - vy_value as u16;
+                    vx.write(result as u8);
                     if borrow {
-                        regs.VF = 0x01;
+                        regs.VF.write(0x01);
                     } else {
-                        regs.VF = 0x00;
+                        regs.VF.write(0x00);
                     }
                     regs.PC += 2;
                     desc = format!("subtract V{} - V{} with borrow", vx_id, vy_id);
                 }
                 0x6 => {
                     let vy = regs.get_register_ref(vy_id);
-                    let vy_value = *vy;
+                    let vy_value = vy.read();
                     let vx = regs.get_register_mut(vx_id);
                     let lsb = vy_value & 0x01;
-                    *vx = vy_value >> 1;
-                    regs.VF = lsb;
+                    vx.write(vy_value >> 1);
+                    regs.VF.write(lsb);
                     regs.PC += 2;
                     desc = format!("store V{} >> 1 in V{} with lsb in VF", vy_id, vx_id);
                 }
                 0x7 => {
                     let vy = regs.get_register_ref(vy_id);
-                    let vy_value = *vy;
+                    let vy_value = vy.read();
                     let vx = regs.get_register_mut(vx_id);
-                    let borrow = *vx > vy_value;
-                    let result = vy_value as u16 - *vx as u16;
-                    *vx = result as u8;
+                    let vx_value = vx.read();
+                    let borrow = vx_value > vy_value;
+                    let result = vy_value as u16 - vx_value as u16;
+                    vx.write(result as u8);
                     if borrow {
-                        regs.VF = 0x01;
+                        regs.VF.write(0x01);
                     } else {
-                        regs.VF = 0x00;
+                        regs.VF.write(0x00);
                     }
                     regs.PC += 2;
                     desc = format!("subtract V{} - V{} with borrow", vy_id, vx_id);
                 }
                 0xE => {
                     let vy = regs.get_register_ref(vy_id);
-                    let vy_value = *vy;
+                    let vy_value = vy.read();
                     let vx = regs.get_register_mut(vx_id);
                     let msb = (vy_value & 0x80) >> 8;
-                    *vx = vy_value << 1;
-                    regs.VF = msb;
+                    vx.write(vy_value << 1);
+                    regs.VF.write(msb);
                     regs.PC += 2;
                     desc = format!("store V{} << 1 in V{} with msb in VF", vy_id, vx_id);
                 }
@@ -304,7 +301,7 @@ impl Chip8CPU {
                 0x0 => {
                     let vx = regs.get_register_ref(vx_id);
                     let vy = regs.get_register_ref(vy_id);
-                    if *vx != *vy {
+                    if vx.read() != vy.read() {
                         regs.PC += 4;
                     } else {
                         regs.PC += 2;
@@ -314,18 +311,19 @@ impl Chip8CPU {
                 _ => panic!("invalid 0x9XY0 opcode"),
             },
             0xA000..=0xAFFF => {
-                regs.VI = embedded_address;
+                regs.VI.write(embedded_address);
                 regs.PC += 2;
                 desc = format!("store 0x{:04X} in VI", embedded_address);
             }
             0xB000..=0xBFFF => {
-                regs.PC = embedded_address + regs.V0 as u16;
+                let v0_value: u16 = regs.V0.try_read_as().unwrap();
+                regs.PC.write(embedded_address + v0_value);
                 desc = format!("jump to address 0x{:04X} + V0", embedded_address);
             }
             0xC000..=0xCFFF => {
                 let vx = regs.get_register_mut(vx_id);
                 let random = rand::random::<u8>();
-                *vx = random & embedded_byte;
+                vx.write(random & embedded_byte);
                 regs.PC += 2;
                 desc = format!(
                     "set V{} to a random number with mask 0x{:02X}",
@@ -333,23 +331,24 @@ impl Chip8CPU {
                 );
             }
             0xD000..=0xDFFF => {
-                let vx = *regs.get_register_ref(vx_id);
-                let vy = *regs.get_register_ref(vy_id);
-                regs.VF = match self.draw_sprite(regs.VI, embedded_nybble, vx.into(), vy.into()) {
-                    true => 1,
-                    false => 0,
+                let vx_value: usize = regs.get_register_ref(vx_id).try_read_as().unwrap();
+                let vy_value: usize = regs.get_register_ref(vy_id).try_read_as().unwrap();
+                if self.draw_sprite(regs.VI.read(), embedded_nybble, vx_value, vy_value) {
+                    regs.VF.write(0x01);
+                } else {
+                    regs.VF.write(0x00);
                 };
                 regs.PC += 2;
                 desc = format!(
-                    "draw {}-byte sprite in memory at 0x{:04X} to (V{}: {}, V{}: {})",
-                    embedded_nybble, regs.VI, vx_id, vx, vy_id, vy
+                    "draw {}-byte sprite in memory at {} to (V{}: 0x{:04X}, V{}: 0x{:04X})",
+                    embedded_nybble, regs.VI, vx_id, vx_value, vy_id, vy_value
                 );
             }
             _ => panic!("invalid opcode: 0x{:04X}", opcode),
         }
 
         tracing::debug!(
-            "cycle {} | PC: 0x{:04X} | 0x{:04X} {}",
+            "cycle {} | PC: {} | 0x{:04X} {}",
             cycle_number,
             regs.PC,
             opcode,
