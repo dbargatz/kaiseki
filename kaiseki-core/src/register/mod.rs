@@ -1,27 +1,55 @@
-use std::{fmt, result::Result, convert::Infallible};
-use num_traits::{Num, Unsigned};
+use num_traits::{Num, Unsigned, WrappingAdd};
+use std::{convert::Infallible, fmt, ops, result::Result};
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Register<T> where T: Unsigned + Copy {
+pub trait RegisterValue: Copy + Unsigned + WrappingAdd {}
+
+impl RegisterValue for u8 {}
+impl RegisterValue for u16 {}
+impl RegisterValue for u32 {}
+impl RegisterValue for u64 {}
+
+#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Register<T>
+where
+    T: RegisterValue,
+{
     value: T,
 }
 
-impl<T: Unsigned + Copy> Register<T> {
-    fn read(&self) -> T {
+impl<T: RegisterValue> Register<T> {
+    pub fn read(&self) -> T {
         self.value
     }
 
-    fn write(&mut self, value: T) {
+    pub fn write(&mut self, value: T) {
         self.value = value;
     }
 
-    fn try_read_as<V: Num + From<T>>(&self) -> Result<V, Infallible> {
+    pub fn try_read_as<V: Num + From<T>>(&self) -> Result<V, Infallible> {
         V::try_from(self.value)
+    }
+}
+
+impl<T: RegisterValue> ops::AddAssign<T> for Register<T> {
+    fn add_assign(&mut self, rhs: T) {
+        self.value = self.value.wrapping_add(&rhs);
+    }
+}
+
+impl<T: RegisterValue> ops::AddAssign<&T> for Register<T> {
+    fn add_assign(&mut self, rhs: &T) {
+        self.value = self.value.wrapping_add(rhs);
     }
 }
 
 pub type Reg8 = Register<u8>;
 impl fmt::Debug for Reg8 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!("0x{:02X}", self.value))
+    }
+}
+
+impl fmt::Display for Reg8 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!("0x{:02X}", self.value))
     }
@@ -34,6 +62,12 @@ impl fmt::Debug for Reg16 {
     }
 }
 
+impl fmt::Display for Reg16 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!("0x{:04X}", self.value))
+    }
+}
+
 pub type Reg32 = Register<u32>;
 impl fmt::Debug for Reg32 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -41,8 +75,20 @@ impl fmt::Debug for Reg32 {
     }
 }
 
+impl fmt::Display for Reg32 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!("0x{:08X}", self.value))
+    }
+}
+
 pub type Reg64 = Register<u64>;
 impl fmt::Debug for Reg64 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!("0x{:016X}", self.value))
+    }
+}
+
+impl fmt::Display for Reg64 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!("0x{:016X}", self.value))
     }
