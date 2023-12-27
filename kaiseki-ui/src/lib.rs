@@ -1,8 +1,7 @@
 use egui::{ColorImage, TextureFilter, TextureOptions};
 use kaiseki_core::Vex;
-use tokio::sync::oneshot::Sender;
 use thiserror::Error;
-
+use tokio::sync::oneshot::Sender;
 
 #[derive(Debug, Error)]
 pub enum UiError {
@@ -18,17 +17,13 @@ pub struct KaisekiUiApp {
 }
 
 impl KaisekiUiApp {
-    pub fn new(
-        vex: Vex,
-        start_tx: Sender<bool>,
-    ) -> Self {
+    pub fn new(vex: Vex, start_tx: Sender<bool>) -> Self {
         Self {
             vex,
             start_tx: Some(start_tx),
         }
     }
 }
-
 
 impl eframe::App for KaisekiUiApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -47,7 +42,10 @@ impl eframe::App for KaisekiUiApp {
             .default_size((64.0 * 8.0, 32.0 * 8.0))
             .resizable(false)
             .show(ctx, |ui| {
-                ui.image((texture.id(), [width as f32 * 8.0, height as f32 * 8.0].into()));
+                ui.image((
+                    texture.id(),
+                    [width as f32 * 8.0, height as f32 * 8.0].into(),
+                ));
                 ui.label(format!("Frame number: {:?}", ctx.frame_nr()));
                 ui.allocate_space(ui.available_size());
             });
