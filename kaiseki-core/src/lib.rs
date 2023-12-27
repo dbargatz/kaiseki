@@ -2,7 +2,7 @@ mod bus;
 mod component;
 pub mod machine;
 mod oscillator;
-mod register;
+pub mod register;
 mod storage;
 mod vex;
 
