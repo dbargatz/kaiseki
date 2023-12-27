@@ -13,6 +13,7 @@
         "kaiseki",
         "nanos",
         "oneshot",
+        "quadword",
         "rangemap",
         "regs",
         "rustfmt",
