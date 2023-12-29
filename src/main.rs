@@ -49,8 +49,10 @@ fn main() -> Result<()> {
         });
     });
 
-    tracing::info!("creating ui");
-    create_ui(ui_guest, start_tx)?;
+    tracing::info!("creating UI");
+    if let Err(err) = create_ui(ui_guest, start_tx) {
+        tracing::warn!("could not create UI: {}", err);
+    };
 
     tracing::info!("waiting for emulator thread");
     let _ = emulator_thread.join();

@@ -5,8 +5,7 @@ use tokio::sync::oneshot::Sender;
 
 #[derive(Debug, Error)]
 pub enum UiError {
-    #[error("could not create native UI")]
-    CreationError,
+    CreationError(#[from] eframe::Error),
 }
 
 pub type Result<T> = std::result::Result<T, UiError>;
@@ -58,6 +57,8 @@ impl eframe::App for KaisekiUiApp {
 }
 
 pub fn create_ui(vex: Vex, start_tx: Sender<bool>) -> Result<()> {
+    tracing::info!("creating native UI");
+
     let options = eframe::NativeOptions::default();
     let res = eframe::run_native(
         "Kaiseki",
@@ -69,9 +70,6 @@ pub fn create_ui(vex: Vex, start_tx: Sender<bool>) -> Result<()> {
     );
     match res {
         Ok(_) => Ok(()),
-        Err(err) => {
-            tracing::error!("error creating native UI: {}", err);
-            Err(UiError::CreationError)
-        }
+        Err(err) => Err(UiError::CreationError(err)),
     }
 }
