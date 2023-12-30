@@ -1,5 +1,6 @@
-use crate::instructions::{Chip8Instruction, Chip8Opcode};
+use crate::instructions::Chip8Instruction;
 use kaiseki_core::cpu::decoder::{DecodeError, DecodeOne, Result};
+use kaiseki_core::cpu::Instruction;
 
 pub struct Chip8Decoder {}
 
@@ -7,7 +8,7 @@ impl DecodeOne for Chip8Decoder {
     type Instruction = Chip8Instruction;
 
     fn decode_one(&self, bytes: &[u8]) -> Result<Self::Instruction> {
-        let opcode = Chip8Opcode::from_be_bytes(bytes);
+        let opcode = <Self::Instruction as Instruction>::Opcode::from_be_bytes(bytes);
 
         let ins = match opcode.value() {
             0x0000..=0x0FFF => match opcode.value() {
@@ -24,12 +25,12 @@ impl DecodeOne for Chip8Decoder {
                 addr: opcode.value() & 0x0FFF,
             },
             0x3000..=0x3FFF => Chip8Instruction::SkipIfEqual {
-                vx_idx: ((opcode.value() & 0x0F00) >> 2) as u8,
-                value: (opcode.value() & 0x00FF) as u8,
+                vx_idx: opcode.get_nybble(2),
+                value: opcode.get_byte(0),
             },
             0x4000..=0x4FFF => Chip8Instruction::SkipIfNotEqual {
-                vx_idx: ((opcode.value() & 0x0F00) >> 2) as u8,
-                value: (opcode.value() & 0x00FF) as u8,
+                vx_idx: opcode.get_nybble(2),
+                value: opcode.get_byte(0),
             },
             _ => Err(DecodeError::UnimplementedOpcode)?,
         };

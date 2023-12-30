@@ -1,7 +1,5 @@
 use kaiseki_core::cpu::{opcode::Opcode16, Instruction};
 
-pub type Chip8Opcode = Opcode16;
-
 #[allow(dead_code)]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Chip8Instruction {
@@ -127,6 +125,8 @@ pub enum Chip8Instruction {
 }
 
 impl Instruction for Chip8Instruction {
+    type Opcode = Opcode16;
+
     fn len_bytes(&self) -> usize {
         2
     }
