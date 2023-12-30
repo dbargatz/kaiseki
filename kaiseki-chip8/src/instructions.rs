@@ -1,4 +1,6 @@
-use kaiseki_core::cpu::Instruction;
+use kaiseki_core::cpu::{opcode::Opcode16, Instruction};
+
+pub type Chip8Opcode = Opcode16;
 
 #[allow(dead_code)]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
