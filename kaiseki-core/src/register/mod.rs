@@ -26,7 +26,7 @@ impl<T: RegisterValue> Register<T> {
     }
 
     pub fn try_read_as<V: Num + From<T>>(&self) -> Result<V, Infallible> {
-        V::try_from(self.value)
+        Ok(V::from(self.value))
     }
 }
 
