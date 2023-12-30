@@ -1,4 +1,4 @@
-FROM rust:1.74.1-bookworm AS devcontainer
+FROM rust:1.75.0-bookworm AS devcontainer
 
 # Create a non-root user for the container using the given ARGs, which allows
 # the X11 socket on the host to be accessed without hacky workarounds such as
