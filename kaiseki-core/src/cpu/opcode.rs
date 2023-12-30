@@ -1,4 +1,4 @@
-use num_traits::{FromPrimitive, ToPrimitive, Unsigned};
+use num_traits::{FromBytes, FromPrimitive, ToBytes, ToPrimitive, Unsigned};
 use std::{fmt, ops};
 use thiserror::Error;
 
@@ -15,7 +15,9 @@ pub trait OpcodeValue:
     + fmt::Debug
     + fmt::Display
     + Unsigned
+    + ToBytes
     + ToPrimitive
+    + FromBytes
     + FromPrimitive
     + ops::BitAnd<Self, Output = Self>
     + ops::Shl<usize, Output = Self>
@@ -76,6 +78,10 @@ impl<T: OpcodeValue> Opcode<T> {
             .expect("extracted value can be converted to u8"))
     }
 
+    pub fn value(&self) -> T {
+        self.value
+    }
+
     pub fn get_bit(&self, idx: usize) -> u8 {
         self.try_get_bit(idx).unwrap()
     }
@@ -101,14 +107,44 @@ impl<T: OpcodeValue> Opcode<T> {
     }
 }
 
+fn slice_it<const N: usize>(bytes: &[u8]) -> [u8; N] {
+    bytes[0..N].try_into().expect("convert &[u8] to [u8; N]")
+}
+
 pub type Opcode8 = Opcode<u8>;
 impl fmt::Debug for Opcode<u8> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!("0x{:02X}", self.value))
     }
 }
+impl Opcode<u8> {
+    pub fn from_be_bytes(bytes: &[u8]) -> Self {
+        Self {
+            value: u8::from_be_bytes(slice_it(bytes)),
+        }
+    }
+
+    pub fn from_le_bytes(bytes: &[u8]) -> Self {
+        Self {
+            value: u8::from_le_bytes(slice_it(bytes)),
+        }
+    }
+}
 
 pub type Opcode16 = Opcode<u16>;
+impl Opcode<u16> {
+    pub fn from_be_bytes(bytes: &[u8]) -> Self {
+        Self {
+            value: u16::from_be_bytes(slice_it(bytes)),
+        }
+    }
+
+    pub fn from_le_bytes(bytes: &[u8]) -> Self {
+        Self {
+            value: u16::from_le_bytes(slice_it(bytes)),
+        }
+    }
+}
 impl fmt::Debug for Opcode<u16> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!("0x{:04X}", self.value))
@@ -121,11 +157,37 @@ impl fmt::Debug for Opcode<u32> {
         f.write_fmt(format_args!("0x{:08X}", self.value))
     }
 }
+impl Opcode<u32> {
+    pub fn from_be_bytes(bytes: &[u8]) -> Self {
+        Self {
+            value: u32::from_be_bytes(slice_it(bytes)),
+        }
+    }
+
+    pub fn from_le_bytes(bytes: &[u8]) -> Self {
+        Self {
+            value: u32::from_le_bytes(slice_it(bytes)),
+        }
+    }
+}
 
 pub type Opcode64 = Opcode<u64>;
 impl fmt::Debug for Opcode<u64> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!("0x{:016X}", self.value))
+    }
+}
+impl Opcode<u64> {
+    pub fn from_be_bytes(bytes: &[u8]) -> Self {
+        Self {
+            value: u64::from_be_bytes(slice_it(bytes)),
+        }
+    }
+
+    pub fn from_le_bytes(bytes: &[u8]) -> Self {
+        Self {
+            value: u64::from_le_bytes(slice_it(bytes)),
+        }
     }
 }
 
