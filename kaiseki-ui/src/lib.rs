@@ -5,7 +5,7 @@ use tokio::sync::oneshot::Sender;
 
 #[derive(Debug, Error)]
 pub enum UiError {
-    #[error("error creating native UI")]
+    #[error("error creating native UI: {0}")]
     CreationError(#[from] eframe::Error),
 }
 
