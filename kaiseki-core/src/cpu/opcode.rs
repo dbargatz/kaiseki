@@ -107,7 +107,7 @@ impl<T: OpcodeValue> Opcode<T> {
     }
 }
 
-fn slice_it<const N: usize>(bytes: &[u8]) -> [u8; N] {
+fn slice_to_array<const N: usize>(bytes: &[u8]) -> [u8; N] {
     bytes[0..N].try_into().expect("convert &[u8] to [u8; N]")
 }
 
@@ -120,13 +120,13 @@ impl fmt::Debug for Opcode<u8> {
 impl Opcode<u8> {
     pub fn from_be_bytes(bytes: &[u8]) -> Self {
         Self {
-            value: u8::from_be_bytes(slice_it(bytes)),
+            value: u8::from_be_bytes(slice_to_array(bytes)),
         }
     }
 
     pub fn from_le_bytes(bytes: &[u8]) -> Self {
         Self {
-            value: u8::from_le_bytes(slice_it(bytes)),
+            value: u8::from_le_bytes(slice_to_array(bytes)),
         }
     }
 }
@@ -135,13 +135,13 @@ pub type Opcode16 = Opcode<u16>;
 impl Opcode<u16> {
     pub fn from_be_bytes(bytes: &[u8]) -> Self {
         Self {
-            value: u16::from_be_bytes(slice_it(bytes)),
+            value: u16::from_be_bytes(slice_to_array(bytes)),
         }
     }
 
     pub fn from_le_bytes(bytes: &[u8]) -> Self {
         Self {
-            value: u16::from_le_bytes(slice_it(bytes)),
+            value: u16::from_le_bytes(slice_to_array(bytes)),
         }
     }
 }
@@ -160,13 +160,13 @@ impl fmt::Debug for Opcode<u32> {
 impl Opcode<u32> {
     pub fn from_be_bytes(bytes: &[u8]) -> Self {
         Self {
-            value: u32::from_be_bytes(slice_it(bytes)),
+            value: u32::from_be_bytes(slice_to_array(bytes)),
         }
     }
 
     pub fn from_le_bytes(bytes: &[u8]) -> Self {
         Self {
-            value: u32::from_le_bytes(slice_it(bytes)),
+            value: u32::from_le_bytes(slice_to_array(bytes)),
         }
     }
 }
@@ -180,13 +180,13 @@ impl fmt::Debug for Opcode<u64> {
 impl Opcode<u64> {
     pub fn from_be_bytes(bytes: &[u8]) -> Self {
         Self {
-            value: u64::from_be_bytes(slice_it(bytes)),
+            value: u64::from_be_bytes(slice_to_array(bytes)),
         }
     }
 
     pub fn from_le_bytes(bytes: &[u8]) -> Self {
         Self {
-            value: u64::from_le_bytes(slice_it(bytes)),
+            value: u64::from_le_bytes(slice_to_array(bytes)),
         }
     }
 }
