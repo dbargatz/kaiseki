@@ -1,5 +1,6 @@
 mod bus;
 mod component;
+pub mod cpu;
 pub mod machine;
 mod oscillator;
 pub mod register;
