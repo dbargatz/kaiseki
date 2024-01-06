@@ -1,3 +1,6 @@
+#![feature(trace_macros)]
+
+pub mod arch;
 mod bus;
 mod component;
 pub mod cpu;

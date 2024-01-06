@@ -1,3 +1,5 @@
+#![feature(trace_macros)]
+
 pub mod cpu;
 pub mod machine;
 

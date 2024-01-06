@@ -2,9 +2,9 @@ use crate::arch::instructions::{
     Call, Chip8Instruction, Chip8InstructionId, ClearScreen, ExecuteMachineSubroutine, Jump,
     Return, SkipIfEqual, SkipIfNotEqual,
 };
+use kaiseki_core::arch::instruction::Instruction;
 use kaiseki_core::cpu::decoder::{DecodeError, DecodeOne, Result};
 use kaiseki_core::cpu::opcode::Opcode16;
-use kaiseki_core::cpu::Instruction;
 
 pub struct Chip8Decoder {}
 
@@ -49,12 +49,19 @@ mod tests {
             assert!(result.is_ok());
             let instruction = result.unwrap();
             match instruction.id() {
-                Chip8InstructionId::ClearScreen => assert_eq!(opcode, 0x00E0),
-                Chip8InstructionId::Return => assert_eq!(opcode, 0x00EE),
+                Chip8InstructionId::ClearScreen => {
+                    assert_eq!(opcode, 0x00E0);
+                    assert_eq!(ClearScreen::valid_opcodes(), &[0x00E0]);
+                }
+                Chip8InstructionId::Return => {
+                    assert_eq!(opcode, 0x00EE);
+                    assert_eq!(Return::valid_opcodes(), &[0x00EE]);
+                }
                 Chip8InstructionId::ExecuteMachineSubroutine => {
                     assert_eq!(opcode & 0x0FFF, instruction.address());
                     assert_ne!(opcode & 0x0FFF, 0x00E0);
                     assert_ne!(opcode & 0x0FFF, 0x00EE);
+                    assert_eq!(ExecuteMachineSubroutine::valid_opcodes().len(), 0x1000 - 2);
                 }
                 _ => panic!("unexpected instruction: {:?}", instruction),
             }
