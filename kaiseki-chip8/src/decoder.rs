@@ -1,37 +1,29 @@
-use crate::instructions::Chip8Instruction;
+use crate::arch::instructions::{
+    Call, Chip8Instruction, Chip8InstructionId, ClearScreen, ExecuteMachineSubroutine, Jump,
+    Return, SkipIfEqual, SkipIfNotEqual,
+};
 use kaiseki_core::cpu::decoder::{DecodeError, DecodeOne, Result};
+use kaiseki_core::cpu::opcode::Opcode16;
 use kaiseki_core::cpu::Instruction;
 
 pub struct Chip8Decoder {}
 
 impl DecodeOne for Chip8Decoder {
-    type Instruction = Chip8Instruction;
+    type Instruction = Box<dyn Chip8Instruction<Id = Chip8InstructionId>>;
 
     fn decode_one(&self, bytes: &[u8]) -> Result<Self::Instruction> {
-        let opcode = <Self::Instruction as Instruction>::Opcode::from_be_bytes(bytes);
+        let opcode = Opcode16::from_be_bytes(bytes);
 
-        let ins = match opcode.value() {
+        let ins: Self::Instruction = match opcode.value() {
             0x0000..=0x0FFF => match opcode.value() {
-                0x00E0 => Chip8Instruction::ClearScreen,
-                0x00EE => Chip8Instruction::Return,
-                _ => Chip8Instruction::ExecuteMachineSubroutine {
-                    addr: opcode.value() & 0x0FFF,
-                },
+                0x00E0 => Box::new(ClearScreen::create(opcode.value())),
+                0x00EE => Box::new(Return::create(opcode.value())),
+                _ => Box::new(ExecuteMachineSubroutine::create(opcode.value())),
             },
-            0x1000..=0x1FFF => Chip8Instruction::Jump {
-                addr: opcode.value() & 0x0FFF,
-            },
-            0x2000..=0x2FFF => Chip8Instruction::Call {
-                addr: opcode.value() & 0x0FFF,
-            },
-            0x3000..=0x3FFF => Chip8Instruction::SkipIfEqual {
-                vx_idx: opcode.get_nybble(2),
-                value: opcode.get_byte(0),
-            },
-            0x4000..=0x4FFF => Chip8Instruction::SkipIfNotEqual {
-                vx_idx: opcode.get_nybble(2),
-                value: opcode.get_byte(0),
-            },
+            0x1000..=0x1FFF => Box::new(Jump::create(opcode.value())),
+            0x2000..=0x2FFF => Box::new(Call::create(opcode.value())),
+            0x3000..=0x3FFF => Box::new(SkipIfEqual::create(opcode.value())),
+            0x4000..=0x4FFF => Box::new(SkipIfNotEqual::create(opcode.value())),
             _ => Err(DecodeError::UnimplementedOpcode)?,
         };
         Ok(ins)
@@ -40,9 +32,11 @@ impl DecodeOne for Chip8Decoder {
 
 #[cfg(test)]
 mod tests {
+    use crate::arch::instructions::Chip8InstructionId;
+
     use super::*;
 
-    fn basic_harness(opcode: u16) -> Result<Chip8Instruction> {
+    fn basic_harness(opcode: u16) -> Result<<Chip8Decoder as DecodeOne>::Instruction> {
         let bytes = &opcode.to_be_bytes();
         let decoder = Chip8Decoder {};
         decoder.decode_one(bytes)
@@ -54,11 +48,11 @@ mod tests {
             let result = basic_harness(opcode);
             assert!(result.is_ok());
             let instruction = result.unwrap();
-            match instruction {
-                Chip8Instruction::ClearScreen => assert_eq!(opcode, 0x00E0),
-                Chip8Instruction::Return => assert_eq!(opcode, 0x00EE),
-                Chip8Instruction::ExecuteMachineSubroutine { addr } => {
-                    assert_eq!(opcode & 0x0FFF, addr);
+            match instruction.id() {
+                Chip8InstructionId::ClearScreen => assert_eq!(opcode, 0x00E0),
+                Chip8InstructionId::Return => assert_eq!(opcode, 0x00EE),
+                Chip8InstructionId::ExecuteMachineSubroutine => {
+                    assert_eq!(opcode & 0x0FFF, instruction.address());
                     assert_ne!(opcode & 0x0FFF, 0x00E0);
                     assert_ne!(opcode & 0x0FFF, 0x00EE);
                 }
@@ -73,9 +67,9 @@ mod tests {
             let result = basic_harness(opcode);
             assert!(result.is_ok());
             let instruction = result.unwrap();
-            match instruction {
-                Chip8Instruction::Jump { addr } => {
-                    assert_eq!(opcode & 0x0FFF, addr);
+            match instruction.id() {
+                Chip8InstructionId::Jump => {
+                    assert_eq!(opcode & 0x0FFF, instruction.address());
                 }
                 _ => panic!("unexpected instruction: {:?}", instruction),
             }
@@ -86,7 +80,7 @@ mod tests {
     fn test_valid_opcodes_0x5xy0() {
         for opcode in 0x5000u16..=0x5FFFu16 {
             let result = basic_harness(opcode);
-            assert_eq!(result, Err(DecodeError::UnimplementedOpcode));
+            assert_eq!(result.unwrap_err(), DecodeError::UnimplementedOpcode);
             // assert!(result.is_ok());
             // let instruction = result.unwrap();
             // match instruction {
