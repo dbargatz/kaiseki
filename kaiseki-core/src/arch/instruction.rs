@@ -167,9 +167,13 @@ macro_rules! instruction_set {
         }
     };
 
-    ($isa_name:ident, $opcode_type:ty { $($name:ident ($mnemonic:literal, $($opcode_fields:tt)+),)* }) => {
-        $crate::instruction_set!(@generate_id_enum $isa_name, $($name),+);
+    (@handle_subfield $isa_name:ident, $opcode_type:ty, instructions, { $($name:ident ($mnemonic:literal, $($opcode_fields:tt)+),)* }) => {
         $crate::instruction_set!(@generate_instruction_trait $isa_name, $opcode_type);
+        $crate::instruction_set!(@generate_id_enum $isa_name, $($name),+);
         $($crate::instruction!($isa_name, $opcode_type, $name, $mnemonic, $($opcode_fields)*);)*
+    };
+
+    ($isa_name:ident: $opcode_type:ty { $($subfield_name:ident: $subfield_content:tt)+ }) => {
+        $($crate::instruction_set!(@handle_subfield $isa_name, $opcode_type, $subfield_name, $subfield_content))+;
     };
 }
