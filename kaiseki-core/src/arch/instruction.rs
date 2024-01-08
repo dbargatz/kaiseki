@@ -145,6 +145,16 @@ macro_rules! instruction {
 }
 
 #[macro_export]
+macro_rules! fields {
+    ($field_name:ident: $value_type:ty { $($subfield_name:ident: $subfield_type:ty = $subfield_content:expr ,)+ }) => {
+        pub struct $field_name {
+            value: $value_type,
+            $($subfield_name: $subfield_type ,)+
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! instruction_set {
     (@generate_instruction_trait $isa_name:ident, $opcode_type:ty) => {
         $crate::arch::instruction::paste! {
@@ -167,13 +177,18 @@ macro_rules! instruction_set {
         }
     };
 
+    (@handle_subfield $isa_name:ident, $opcode_type:ty, fields, { $($field_name:ident: $value_type:ty { $($contents:tt)* })* }) => {
+        $($crate::fields!($field_name: $value_type { $($contents)* });)*
+    };
+
     (@handle_subfield $isa_name:ident, $opcode_type:ty, instructions, { $($name:ident ($mnemonic:literal, $($opcode_fields:tt)+),)* }) => {
         $crate::instruction_set!(@generate_instruction_trait $isa_name, $opcode_type);
         $crate::instruction_set!(@generate_id_enum $isa_name, $($name),+);
         $($crate::instruction!($isa_name, $opcode_type, $name, $mnemonic, $($opcode_fields)*);)*
     };
 
+
     ($isa_name:ident: $opcode_type:ty { $($subfield_name:ident: $subfield_content:tt)+ }) => {
-        $($crate::instruction_set!(@handle_subfield $isa_name, $opcode_type, $subfield_name, $subfield_content))+;
+        $($crate::instruction_set!(@handle_subfield $isa_name, $opcode_type, $subfield_name, $subfield_content);)+
     };
 }

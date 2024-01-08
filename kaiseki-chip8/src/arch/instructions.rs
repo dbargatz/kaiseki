@@ -1,8 +1,25 @@
 #![allow(clippy::identity_op)]
-use kaiseki_core::instruction_set;
+use kaiseki_core::{fields, instruction_set};
+
+fields! {
+    opcode: u16 {
+        KK: u8   = opcode & 0x00FF,
+        NNN: u16 = opcode & 0x0FFF,
+        X: u8    = (opcode & 0x0F00) >> 8,
+        Y: u8    = (opcode & 0x00F0) >> 4,
+    }
+}
 
 instruction_set! {
     Chip8: u16 {
+        fields: {
+            opcode2: u16 {
+                KK: u8   = opcode & 0x00FF,
+                NNN: u16 = opcode & 0x0FFF,
+                X: u8    = (opcode & 0x0F00) >> 8,
+                Y: u8    = (opcode & 0x00F0) >> 4,
+            }
+        }
         instructions: {
             ClearScreen("CLS", 0x00E0),                   // 0x00E0
             Return("RET", 0x00EE),                        // 0x00EE
