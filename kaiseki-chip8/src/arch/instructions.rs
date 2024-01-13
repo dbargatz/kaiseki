@@ -93,25 +93,25 @@ pub mod chip8 {
         use kaiseki_macros::fields;
 
         fields! {
-            Opcode: u16 {
+            Opcode: u16 = |op| {
                 // becomes pub fn kk(&self) -> u8 { (self.value & 0x00FF) as u8 }
-                kk: u8 = $[0..=7],
+                kk: u8 = op[0..=7],
                 // becomes pub fn nnn(&self) -> u16 { (self.value & 0x0FFF) as u16 }
-                nnn: u16 = $[0..=11],
+                nnn: u16 = op[0..=11],
                 // becomes let x: RegisterId = { ... }
-                x: u8 = $[8..=11],
-                    // x: RegisterId = |raw: u16| {
+                x: u8 = op[8..=11],
+                    // x: RegisterId = |raw| {
                     //     let value: u8 = (raw & 0x0F00) >> 8;
                     //     RegisterId::get_by_index(value)
                     // },
                 // becomes let y: RegisterId = { ... }
-                y: u8 = $[4..=7],
+                y: u8 = op[4..=7],
                     // y: RegisterId = |raw: u16| {
                     //     let value: u8 = (raw & 0x00F0) >> 4;
                     //     RegisterId::get_by_index(value)
                     // },
             },
-            FlagsReg: u16 {
+            FlagsReg: u16 = |reg| {
 
             }
         }

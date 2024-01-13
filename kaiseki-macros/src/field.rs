@@ -45,10 +45,9 @@ impl ToTokens for FieldDefinitionList {
 //  - optional
 
 // syntax of the form:
-// - `name: type`                     (top-level only)
-// - `name: type = { ... }`           (top-level or subfield)
-// - `name: type = self.value[X..Y]`  (subfield only)
-// - `name: type = self.value[X..=Y]` (subfield only)
+// - `name: type = $[X..Y]`          (subfield only)
+// - `name: type = $[X..=Y]`         (subfield only)
+// - `name: type = |inner_name| { ... }`
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FieldDefinition {
     name: Ident,
@@ -64,37 +63,40 @@ impl Parse for FieldDefinition {
         input.parse::<Token![:]>()?;
         let typ = input.parse()?;
 
+        input.parse::<Token![=]>()?;
+
         // We have a few options for what comes next:
-        //   - nothing
         //   - a full range pattern: `= $[X..Y]` or `= $[X..=Y]`
-        //   - an extractor block: `= |name: type| { ... }`
-        //   - a block of subfields: `{ ... }`
+        //   - an extractor block: `= |name| { ... }`
         let mut range = None;
-        if input.peek(Token![=]) {
-            // Must be a range or extractor block.
-            input.parse::<Token![=]>()?;
-
-            if input.peek(syn::token::Dollar) && input.peek2(syn::token::Bracket) {
-                input.parse::<Token![$]>()?;
-                let content;
-                let _ = bracketed!(content in input);
-                range = Some(content.parse()?);
-            } else if input.peek(syn::token::Or) {
-                // TODO: Extractor block
-            }
-        }
-
         let mut subfields = Vec::new();
-        if input.peek(syn::token::Brace) {
+        if input.peek(Token![|]) {
+            input.parse::<Token![|]>()?;
+            // TODO: need to pass the closure variable name to subfields; just using "op" for now
+            let inner_name = input.parse::<Ident>()?;
+            input.parse::<Token![|]>()?;
+
             let content;
             let _ = braced!(content in input);
-
             while !content.is_empty() {
                 let punc = content.parse_terminated(FieldDefinition::parse, Token![,])?;
                 punc.into_pairs().for_each(|pair| {
                     subfields.push(pair.into_value());
                 });
             }
+        } else {
+            let var_name = input.parse::<Ident>()?;
+            // TODO: need to track the closure variable name for use with subfields; just using "op" for now
+            if var_name != "op" {
+                return Err(syn::Error::new(
+                    var_name.span(),
+                    "Expected `op` as the variable name for a range pattern",
+                ));
+            }
+
+            let content;
+            let _ = bracketed!(content in input);
+            range = Some(content.parse()?);
         }
 
         Ok(FieldDefinition {
@@ -178,92 +180,51 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_field_definition_basic() {
-        let input = quote! {
-            BasicField: u8
-        };
-        let field = syn::parse2::<FieldDefinition>(input).unwrap();
-        validate_field(&field, "BasicField", "u8", None, 0);
-    }
-
-    #[test]
-    fn test_parse_field_definition_with_range_exclusive() {
-        let input = quote! {
-            RangeField: u8 = $[0..3]
-        };
-        let field = syn::parse2::<FieldDefinition>(input).unwrap();
-        validate_field(&field, "RangeField", "u8", Some(quote! { 0..3 }), 0);
-    }
-
-    #[test]
-    fn test_parse_field_definition_with_range_inclusive() {
-        let input = quote! {
-            RangeInclusiveField: u8 = $[0..=3]
-        };
-        let field = syn::parse2::<FieldDefinition>(input).unwrap();
-        validate_field(
-            &field,
-            "RangeInclusiveField",
-            "u8",
-            Some(quote! { 0..=3 }),
-            0,
-        );
-    }
-
-    #[test]
     fn test_parse_field_definition_with_subfields() {
         let input = quote! {
-            FieldWithSubfields: u32 {
-                SubBasic: u8, // is this ever valid as a subfield? what does this mean?
-                SubRange: u8 = $[0..4], // becomes FieldWithSubfields.SubRange() -> u8 { (self.value & 0x0000000F) as u8 }
-                SubRangeInclusive: u8 = $[4..=7],  // becomes FieldWithSubfields.SubRangeInclusive() -> u8 { ((self.value & 0x000000F0) >> 4) as u8 }
-                SubWithSubfields: u16 = $[8..=23] {
-                    SubSub1: u8 = $[0..8],
-                    SubSub2: u8 = $[8..=15],
+            FieldWithSubfields: u32 = |op| {
+                SubRange: u8 = op[0..4], // becomes FieldWithSubfields.SubRange() -> u8 { (self.value & 0x0000000F) as u8 }
+                SubRangeInclusive: u8 = op[4..=7],  // becomes FieldWithSubfields.SubRangeInclusive() -> u8 { ((self.value & 0x000000F0) >> 4) as u8 }
+                SubWithSubfields: u16 = |op| {
+                    SubSub1: u8 = op[0..8],
+                    SubSub2: u8 = op[8..=15],
                 },
-                SubTop: u8 = $[24..=31],
+                SubTop: u8 = op[24..=31],
             }
         };
         let field = syn::parse2::<FieldDefinition>(input).unwrap();
-        validate_field(&field, "FieldWithSubfields", "u32", None, 5);
-        validate_field(&field.subfields[0], "SubBasic", "u8", None, 0);
+        validate_field(&field, "FieldWithSubfields", "u32", None, 4);
         validate_field(
-            &field.subfields[1],
+            &field.subfields[0],
             "SubRange",
             "u8",
             Some(quote! { 0..4 }),
             0,
         );
         validate_field(
-            &field.subfields[2],
+            &field.subfields[1],
             "SubRangeInclusive",
             "u8",
             Some(quote! { 4..=7 }),
             0,
         );
+        validate_field(&field.subfields[2], "SubWithSubfields", "u16", None, 2);
         validate_field(
-            &field.subfields[3],
-            "SubWithSubfields",
-            "u16",
-            Some(quote! { 8..=23 }),
-            2,
-        );
-        validate_field(
-            &field.subfields[3].subfields[0],
+            &field.subfields[2].subfields[0],
             "SubSub1",
             "u8",
             Some(quote! { 0..8 }),
             0,
         );
         validate_field(
-            &field.subfields[3].subfields[1],
+            &field.subfields[2].subfields[1],
             "SubSub2",
             "u8",
             Some(quote! { 8..=15 }),
             0,
         );
         validate_field(
-            &field.subfields[4],
+            &field.subfields[3],
             "SubTop",
             "u8",
             Some(quote! { 24..=31 }),
