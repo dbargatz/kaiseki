@@ -94,9 +94,9 @@ pub mod chip8 {
 
         fields! {
             Opcode: u16 {
-                // becomes let kk: u8 = (raw & 0x00FF) as u8;
+                // becomes pub fn kk(&self) -> u8 { (self.value & 0x00FF) as u8 }
                 kk: u8 = $[0..=7],
-                // becomes let nnn: u16 = (raw & 0x0FFF) as u16;
+                // becomes pub fn nnn(&self) -> u16 { (self.value & 0x0FFF) as u16 }
                 nnn: u16 = $[0..=11],
                 // becomes let x: RegisterId = { ... }
                 x: u8 = $[8..=11],
