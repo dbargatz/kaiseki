@@ -145,16 +145,6 @@ macro_rules! instruction {
 }
 
 #[macro_export]
-macro_rules! fields {
-    ($field_name:ident: $value_type:ty { $($subfield_name:ident: $subfield_type:ty = $subfield_content:expr ,)+ }) => {
-        pub struct $field_name {
-            value: $value_type,
-            $($subfield_name: $subfield_type ,)+
-        }
-    };
-}
-
-#[macro_export]
 macro_rules! instruction_set {
     (@generate_instruction_trait $isa_name:ident, $opcode_type:ty) => {
         $crate::arch::instruction::paste! {

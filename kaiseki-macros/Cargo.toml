@@ -1,0 +1,17 @@
+[package]
+name = "kaiseki-macros"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+kaiseki-core = { path = "../kaiseki-core" }
+proc-macro2 = "1"
+quote = "1"
+syn = "2"
+
+[dev-dependencies]
+pretty_assertions = "1"
+trybuild = "1"

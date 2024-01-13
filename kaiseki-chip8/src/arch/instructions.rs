@@ -1,25 +1,8 @@
 #![allow(clippy::identity_op)]
-use kaiseki_core::{fields, instruction_set};
-
-fields! {
-    opcode: u16 {
-        KK: u8   = opcode & 0x00FF,
-        NNN: u16 = opcode & 0x0FFF,
-        X: u8    = (opcode & 0x0F00) >> 8,
-        Y: u8    = (opcode & 0x00F0) >> 4,
-    }
-}
+use kaiseki_core::instruction_set;
 
 instruction_set! {
     Chip8: u16 {
-        fields: {
-            opcode2: u16 {
-                KK: u8   = opcode & 0x00FF,
-                NNN: u16 = opcode & 0x0FFF,
-                X: u8    = (opcode & 0x0F00) >> 8,
-                Y: u8    = (opcode & 0x00F0) >> 4,
-            }
-        }
         instructions: {
             ClearScreen("CLS", 0x00E0),                   // 0x00E0
             Return("RET", 0x00EE),                        // 0x00EE
@@ -57,5 +40,90 @@ instruction_set! {
             LoadRegs("LD V[0..{0:X}], [VI..VI+{0}]", 0),  // 0xFX65
             ExecuteMachineSubroutine("SYS 0x{0:03X}", 0x0000..=0x0FFF except [0x00E0, 0x00EE]), // 0x0NNN except 0x00E0 and 0x00EE
         }
+    }
+}
+
+pub mod chip8 {
+    pub mod registers {
+        pub enum RegisterId {
+            V0,
+            V1,
+            V2,
+            V3,
+            V4,
+            V5,
+            V6,
+            V7,
+            V8,
+            V9,
+            VA,
+            VB,
+            VC,
+            VD,
+            VE,
+            VF,
+        }
+
+        impl RegisterId {
+            pub fn get_by_index(index: u8) -> RegisterId {
+                match index {
+                    0x0 => RegisterId::V0,
+                    0x1 => RegisterId::V1,
+                    0x2 => RegisterId::V2,
+                    0x3 => RegisterId::V3,
+                    0x4 => RegisterId::V4,
+                    0x5 => RegisterId::V5,
+                    0x6 => RegisterId::V6,
+                    0x7 => RegisterId::V7,
+                    0x8 => RegisterId::V8,
+                    0x9 => RegisterId::V9,
+                    0xA => RegisterId::VA,
+                    0xB => RegisterId::VB,
+                    0xC => RegisterId::VC,
+                    0xD => RegisterId::VD,
+                    0xE => RegisterId::VE,
+                    0xF => RegisterId::VF,
+                    _ => panic!("Invalid register index: {}", index),
+                }
+            }
+        }
+    }
+
+    pub mod instructions {
+        use kaiseki_macros::fields;
+
+        fields! {
+            Opcode: u16 {
+                // becomes let kk: u8 = (raw & 0x00FF) as u8;
+                kk: u8 = $[0..=7],
+                // becomes let nnn: u16 = (raw & 0x0FFF) as u16;
+                nnn: u16 = $[0..=11],
+                // becomes let x: RegisterId = { ... }
+                x: u8 = $[8..=11],
+                    // x: RegisterId = |raw: u16| {
+                    //     let value: u8 = (raw & 0x0F00) >> 8;
+                    //     RegisterId::get_by_index(value)
+                    // },
+                // becomes let y: RegisterId = { ... }
+                y: u8 = $[4..=7],
+                    // y: RegisterId = |raw: u16| {
+                    //     let value: u8 = (raw & 0x00F0) >> 4;
+                    //     RegisterId::get_by_index(value)
+                    // },
+            },
+            FlagsReg: u16 {
+
+            }
+        }
+
+        // instructions! {
+        //     ClearScreen { "CLS", 0x00E0 },
+        //     // ....
+        //     Call { "CALL", 0x2[nnn] },
+        //     // ...
+        //     SkipIfEqual { "SE", 0x3[x][kk] },
+        //     // ...
+        //     Or { "OR", 0x8[x][y]1 },
+        // }
     }
 }
