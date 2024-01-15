@@ -44,38 +44,6 @@ instruction_set! {
 }
 
 pub mod chip8 {
-    use kaiseki_macros::registers;
-
-    registers! {
-        V0: u8,
-        V1: u8,
-        V2: u8,
-        V3: u8,
-        V4: u8,
-        V5: u8,
-        V6: u8,
-        V7: u8,
-        V8: u8,
-        V9: u8,
-        VA: u8,
-        VB: u8,
-        VC: u8,
-        VD: u8,
-        VE: u8,
-
-        // Flags register - do not use as general-purpose register.
-        VF: u8,
-        VI: u16,
-        PC: u16,
-        SP: u8,
-
-        // Delay timer register.
-        DT: u8,
-
-        // Sound timer register.
-        ST: u8,
-    }
-
     pub mod instructions {
         use kaiseki_macros::fields;
 

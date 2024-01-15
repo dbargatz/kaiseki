@@ -1,46 +1,43 @@
-use kaiseki_core::register::{Reg16, Reg8};
+use kaiseki_macros::registers;
 
-#[derive(Debug, Default)]
-#[allow(non_snake_case)]
-#[allow(unused)]
-pub struct Chip8Registers {
-    pub V0: Reg8,
-    pub V1: Reg8,
-    pub V2: Reg8,
-    pub V3: Reg8,
-    pub V4: Reg8,
-    pub V5: Reg8,
-    pub V6: Reg8,
-    pub V7: Reg8,
-    pub V8: Reg8,
-    pub V9: Reg8,
-    pub VA: Reg8,
-    pub VB: Reg8,
-    pub VC: Reg8,
-    pub VD: Reg8,
-    pub VE: Reg8,
+registers! {
+    V0: u8,
+    V1: u8,
+    V2: u8,
+    V3: u8,
+    V4: u8,
+    V5: u8,
+    V6: u8,
+    V7: u8,
+    V8: u8,
+    V9: u8,
+    VA: u8,
+    VB: u8,
+    VC: u8,
+    VD: u8,
+    VE: u8,
 
     // Flags register - do not use as general-purpose register.
-    pub VF: Reg8,
-    pub VI: Reg16,
-    pub PC: Reg16,
-    pub SP: Reg8,
+    VF: u8,
+    VI: u16,
+    PC: u16,
+    SP: u8,
 
-    /// Delay timer register.
-    pub DT: Reg8,
+    // Delay timer register.
+    DT: u8,
 
-    /// Sound timer register.
-    pub ST: Reg8,
+    // Sound timer register.
+    ST: u8,
 }
 
-impl Chip8Registers {
+impl RegisterSet {
     pub fn new() -> Self {
-        Chip8Registers {
+        RegisterSet {
             ..Default::default()
         }
     }
 
-    pub fn get_register_ref(&self, index: u8) -> &Reg8 {
+    pub fn get_register_ref(&self, index: u8) -> &Register<u8> {
         match index {
             0x0 => &self.V0,
             0x1 => &self.V1,
@@ -62,7 +59,7 @@ impl Chip8Registers {
         }
     }
 
-    pub fn get_register_mut(&mut self, index: u8) -> &mut Reg8 {
+    pub fn get_register_mut(&mut self, index: u8) -> &mut Register<u8> {
         match index {
             0x0 => &mut self.V0,
             0x1 => &mut self.V1,

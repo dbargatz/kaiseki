@@ -10,7 +10,7 @@ use kaiseki_core::{
     ExecutableComponent, OscillatorBus, OscillatorBusMessage,
 };
 
-use super::registers::Chip8Registers;
+use super::registers::RegisterSet;
 use super::stack::Chip8Stack;
 
 #[derive(Debug, Error, PartialEq)]
@@ -26,7 +26,7 @@ pub struct Chip8CPU {
     id: ComponentId,
     clock_bus: OscillatorBus,
     memory_bus: AddressableBus,
-    regs: Arc<RwLock<Chip8Registers>>,
+    regs: Arc<RwLock<RegisterSet>>,
     stack: Arc<RwLock<Chip8Stack>>,
 }
 
@@ -64,7 +64,7 @@ impl ExecutableComponent for Chip8CPU {
 impl Chip8CPU {
     pub fn new(clock_bus: &OscillatorBus, memory_bus: &AddressableBus, initial_pc: u16) -> Self {
         let id = ComponentId::new("Chip-8 CPU");
-        let mut regs = Chip8Registers::new();
+        let mut regs = RegisterSet::new();
         regs.PC.write(initial_pc);
         Chip8CPU {
             id,
