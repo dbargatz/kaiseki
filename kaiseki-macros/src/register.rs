@@ -26,7 +26,6 @@ impl ToTokens for RegisterDefinitionList {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let regs = &self.registers;
         let enum_variants = regs.iter().map(|reg| reg.get_enum_variant());
-        let index_matches = regs.iter().map(|reg| reg.get_index_match());
         let struct_fields = regs.iter().map(|reg| reg.get_struct_field());
         tokens.extend(quote! {
             pub mod registers {
@@ -35,15 +34,6 @@ impl ToTokens for RegisterDefinitionList {
                 #[allow(non_snake_case)]
                 pub enum RegisterId {
                     #(#enum_variants),*,
-                }
-
-                impl RegisterId {
-                    pub fn get_by_index(index: u8) -> RegisterId {
-                        match index {
-                            #(#index_matches),*,
-                            _ => panic!("Invalid register index: {}", index),
-                        }
-                    }
                 }
 
                 #[allow(non_snake_case)]
@@ -65,13 +55,6 @@ impl RegisterDefinition {
         let name = &self.name;
         quote! {
             #name
-        }
-    }
-
-    pub fn get_index_match(&self) -> TokenStream2 {
-        let name = &self.name;
-        quote! {
-            #name => RegisterId::#name
         }
     }
 
