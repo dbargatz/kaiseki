@@ -73,7 +73,7 @@ impl Parse for FieldDefinition {
         if input.peek(Token![|]) {
             input.parse::<Token![|]>()?;
             // TODO: need to pass the closure variable name to subfields; just using "op" for now
-            let inner_name = input.parse::<Ident>()?;
+            let _inner_name = input.parse::<Ident>()?;
             input.parse::<Token![|]>()?;
 
             let content;
