@@ -28,18 +28,17 @@ impl ToTokens for RegisterDefinitionList {
         let enum_variants = regs.iter().map(|reg| reg.get_enum_variant());
         let struct_fields = regs.iter().map(|reg| reg.get_struct_field());
         tokens.extend(quote! {
-            pub mod registers {
-                use kaiseki_core::register::Register;
+            use kaiseki_core::register::Register;
 
-                #[allow(non_snake_case)]
-                pub enum RegisterId {
-                    #(#enum_variants),*,
-                }
+            #[allow(non_snake_case)]
+            pub enum RegisterId {
+                #(#enum_variants),*,
+            }
 
-                #[allow(non_snake_case)]
-                pub struct RegisterSet {
-                    #(#struct_fields),*
-                }
+            #[derive(Clone, Debug, Default)]
+            #[allow(non_snake_case)]
+            pub struct RegisterSet {
+                #(#struct_fields),*
             }
         })
     }
