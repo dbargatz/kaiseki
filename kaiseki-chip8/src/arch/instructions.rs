@@ -44,49 +44,36 @@ instruction_set! {
 }
 
 pub mod chip8 {
-    pub mod registers {
-        pub enum RegisterId {
-            V0,
-            V1,
-            V2,
-            V3,
-            V4,
-            V5,
-            V6,
-            V7,
-            V8,
-            V9,
-            VA,
-            VB,
-            VC,
-            VD,
-            VE,
-            VF,
-        }
+    use kaiseki_macros::registers;
 
-        impl RegisterId {
-            pub fn get_by_index(index: u8) -> RegisterId {
-                match index {
-                    0x0 => RegisterId::V0,
-                    0x1 => RegisterId::V1,
-                    0x2 => RegisterId::V2,
-                    0x3 => RegisterId::V3,
-                    0x4 => RegisterId::V4,
-                    0x5 => RegisterId::V5,
-                    0x6 => RegisterId::V6,
-                    0x7 => RegisterId::V7,
-                    0x8 => RegisterId::V8,
-                    0x9 => RegisterId::V9,
-                    0xA => RegisterId::VA,
-                    0xB => RegisterId::VB,
-                    0xC => RegisterId::VC,
-                    0xD => RegisterId::VD,
-                    0xE => RegisterId::VE,
-                    0xF => RegisterId::VF,
-                    _ => panic!("Invalid register index: {}", index),
-                }
-            }
-        }
+    registers! {
+        V0: u8,
+        V1: u8,
+        V2: u8,
+        V3: u8,
+        V4: u8,
+        V5: u8,
+        V6: u8,
+        V7: u8,
+        V8: u8,
+        V9: u8,
+        VA: u8,
+        VB: u8,
+        VC: u8,
+        VD: u8,
+        VE: u8,
+
+        // Flags register - do not use as general-purpose register.
+        VF: u8,
+        VI: u16,
+        PC: u16,
+        SP: u8,
+
+        // Delay timer register.
+        DT: u8,
+
+        // Sound timer register.
+        ST: u8,
     }
 
     pub mod instructions {
