@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use thiserror::Error;
 use tokio::sync::RwLock;
 
+use kaiseki_core::cpu::decoder::{DecodeError, DecodeOne};
 use kaiseki_core::{
     AddressableBus, AddressableComponent, AddressableComponentError, Component, ComponentId,
     ExecutableComponent, OscillatorBus, OscillatorBusMessage,
@@ -12,11 +13,15 @@ use kaiseki_core::{
 
 use super::registers::RegisterSet;
 use super::stack::Chip8Stack;
+use crate::decoder::Chip8Decoder;
 
 #[derive(Debug, Error, PartialEq)]
 pub enum Chip8CpuError {
     #[error("failed to fetch next instruction")]
     InstructionFetch(#[from] AddressableComponentError),
+
+    #[error("failed to decode instruction")]
+    InstructionDecode(#[from] DecodeError),
 }
 
 pub type Result<T> = std::result::Result<T, Chip8CpuError>;
@@ -28,6 +33,7 @@ pub struct Chip8CPU {
     memory_bus: AddressableBus,
     regs: Arc<RwLock<RegisterSet>>,
     stack: Arc<RwLock<Chip8Stack>>,
+    decoder: Chip8Decoder,
 }
 
 impl Component for Chip8CPU {
@@ -49,7 +55,14 @@ impl ExecutableComponent for Chip8CPU {
                 let end_cycle = start_cycle + cycle_budget;
                 tracing::info!("executing cycles {} - {}", start_cycle, end_cycle);
                 for current_cycle in start_cycle..end_cycle {
-                    self.execute_cycle(current_cycle).await.unwrap();
+                    let res = self.execute_cycle(current_cycle).await;
+                    match res {
+                        Ok(_) => {}
+                        Err(e) => {
+                            tracing::error!("error executing cycle {}: {}", current_cycle, e);
+                            continue;
+                        }
+                    }
                 }
                 let response = OscillatorBusMessage::CycleBatchEnd {
                     start_cycle,
@@ -72,6 +85,7 @@ impl Chip8CPU {
             memory_bus: memory_bus.clone(),
             regs: Arc::new(RwLock::new(regs)),
             stack: Arc::new(RwLock::new(Chip8Stack::new())),
+            decoder: Chip8Decoder::new(),
         }
     }
 
@@ -116,6 +130,10 @@ impl Chip8CPU {
         let mut regs = self.regs.write().await;
 
         let opcode = self.fetch(regs.PC.read())?;
+        {
+            let opcode_bytes = opcode.to_be_bytes();
+            let _instruction = self.decoder.decode_one(&opcode_bytes)?;
+        }
         let embedded_address = opcode & 0x0FFF;
         let embedded_byte = (opcode & 0x00FF) as u8;
         let embedded_nybble = (opcode & 0x000F) as u8;

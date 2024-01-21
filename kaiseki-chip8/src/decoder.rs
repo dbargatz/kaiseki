@@ -6,7 +6,14 @@ use kaiseki_core::arch::instruction::Instruction;
 use kaiseki_core::cpu::decoder::{DecodeError, DecodeOne, Result};
 use kaiseki_core::cpu::opcode::Opcode16;
 
+#[derive(Debug)]
 pub struct Chip8Decoder {}
+
+impl Chip8Decoder {
+    pub fn new() -> Self {
+        Chip8Decoder {}
+    }
+}
 
 impl DecodeOne for Chip8Decoder {
     type Instruction = Box<dyn Chip8Instruction<Id = Chip8InstructionId>>;
