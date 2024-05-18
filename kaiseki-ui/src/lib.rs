@@ -1,4 +1,4 @@
-use egui::{ColorImage, TextureFilter, TextureOptions};
+use egui::{ColorImage, TextureFilter, TextureOptions, TextureWrapMode};
 use kaiseki_core::Vex;
 use thiserror::Error;
 use tokio::sync::oneshot::Sender;
@@ -34,6 +34,7 @@ impl eframe::App for KaisekiUiApp {
         let options = TextureOptions {
             magnification: TextureFilter::Nearest,
             minification: TextureFilter::Nearest,
+            wrap_mode: TextureWrapMode::ClampToEdge,
         };
         let texture = ctx.load_texture("display", image, options);
 
