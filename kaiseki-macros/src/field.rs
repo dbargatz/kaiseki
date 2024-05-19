@@ -73,16 +73,26 @@ impl ToTokens for RootFieldDefinition {
         let mut subfield_tokens = TokenStream2::new();
         for field in &self.subfields {
             match field {
-                SubfieldDefinition::Range { name, typ, var_name: _, range: _ } => {
+                SubfieldDefinition::Range {
+                    name,
+                    typ,
+                    var_name: _,
+                    range: _,
+                } => {
                     trait_tokens.extend(quote! {
                         fn #name(&self) -> #typ;
                     });
-                },
-                SubfieldDefinition::Extractor { name, typ, brace_token: _, stmts: _ } => {
+                }
+                SubfieldDefinition::Extractor {
+                    name,
+                    typ,
+                    brace_token: _,
+                    stmts: _,
+                } => {
                     trait_tokens.extend(quote! {
                         fn #name(&self) -> #typ;
                     });
-                },
+                }
             }
             field.to_tokens(&mut subfield_tokens);
         }
@@ -146,34 +156,41 @@ impl Parse for SubfieldDefinition {
                 brace_token,
                 stmts,
             })
-        } 
+        }
     }
 }
 
 impl ToTokens for SubfieldDefinition {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         match self {
-            SubfieldDefinition::Range { name, typ, var_name: _, range: _ } => {
+            SubfieldDefinition::Range {
+                name,
+                typ,
+                var_name: _,
+                range: _,
+            } => {
                 let mask = 0xFFu16;
                 tokens.extend(quote! {
                     fn #name(&self) -> #typ {
                         (self.value & #mask) as #typ
                     }
                 });
-            },
-            SubfieldDefinition::Extractor { name, typ, brace_token: _, stmts } => {
+            }
+            SubfieldDefinition::Extractor {
+                name,
+                typ,
+                brace_token: _,
+                stmts,
+            } => {
                 tokens.extend(quote! {
                     fn #name(&self) -> #typ {
                         #(#stmts)*
                     }
                 });
-            },
+            }
         }
     }
 }
-
-
-
 
 // #[derive(Clone, Debug, PartialEq, Eq)]
 // pub struct FieldDefinition {
@@ -292,7 +309,6 @@ impl ToTokens for SubfieldDefinition {
 //         });
 //     }
 // }
-
 
 // #[derive(Clone, Debug, PartialEq, Eq)]
 // pub struct ExtractorDefinition {

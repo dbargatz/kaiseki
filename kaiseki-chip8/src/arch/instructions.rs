@@ -82,7 +82,6 @@ pub mod chip8 {
     }
 
     pub mod instructions {
-        
 
         // instructions! {
         //     ClearScreen { "CLS", 0x00E0 },

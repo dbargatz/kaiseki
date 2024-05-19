@@ -1,10 +1,10 @@
 use crate::arch::instructions::{
-    Call, Chip8Instruction, Chip8InstructionId, ClearScreen, ExecuteMachineSubroutine, Jump,
-    Return, SkipIfEqual, SkipIfNotEqual, SkipIfRegEqual, SetReg, AddReg, SetRegReg, OrRegReg,
-    AndRegReg, XorRegReg, AddRegReg, SubRegReg, ShiftRightReg, SubRegRegReverse, ShiftLeftReg,
-    SkipIfRegNotEqual, SetVI, JumpPlusV0, Random, Draw, SkipIfKeyPressed, SkipIfKeyNotPressed,
-    GetDelayTimer, WaitForKey, SetDelayTimer, SetSoundTimer, AddRegVI, SetVIDigit, StoreBCD,
-    StoreRegs, LoadRegs
+    AddReg, AddRegReg, AddRegVI, AndRegReg, Call, Chip8Instruction, Chip8InstructionId,
+    ClearScreen, Draw, ExecuteMachineSubroutine, GetDelayTimer, Jump, JumpPlusV0, LoadRegs,
+    OrRegReg, Random, Return, SetDelayTimer, SetReg, SetRegReg, SetSoundTimer, SetVI, SetVIDigit,
+    ShiftLeftReg, ShiftRightReg, SkipIfEqual, SkipIfKeyNotPressed, SkipIfKeyPressed,
+    SkipIfNotEqual, SkipIfRegEqual, SkipIfRegNotEqual, StoreBCD, StoreRegs, SubRegReg,
+    SubRegRegReverse, WaitForKey, XorRegReg,
 };
 use kaiseki_core::arch::instruction::Instruction;
 use kaiseki_core::cpu::decoder::{DecodeError, DecodeOne, Result};

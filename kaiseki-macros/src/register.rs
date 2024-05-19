@@ -103,7 +103,11 @@ impl Parse for RegisterDefinition {
         input.parse::<Token![:]>()?;
         let typ = input.parse()?;
 
-        Ok(RegisterDefinition { name, typ, index: 0 })
+        Ok(RegisterDefinition {
+            name,
+            typ,
+            index: 0,
+        })
     }
 }
 
