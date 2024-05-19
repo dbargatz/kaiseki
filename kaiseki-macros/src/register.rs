@@ -10,11 +10,15 @@ pub struct RegisterDefinitionList {
 impl Parse for RegisterDefinitionList {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let mut registers = Vec::new();
+        let mut index = 0;
 
         while !input.is_empty() {
             let punc = input.parse_terminated(RegisterDefinition::parse, Token![,])?;
             punc.into_pairs().for_each(|pair| {
-                registers.push(pair.into_value());
+                let mut reg = pair.into_value();
+                reg.index = index;
+                index += 1;
+                registers.push(reg);
             });
         }
 
@@ -26,6 +30,7 @@ impl ToTokens for RegisterDefinitionList {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let regs = &self.registers;
         let enum_variants = regs.iter().map(|reg| reg.get_enum_variant());
+        let match_arms = regs.iter().map(|reg| reg.get_match_arms());
         let struct_fields = regs.iter().map(|reg| reg.get_struct_field());
         tokens.extend(quote! {
             use kaiseki_core::register::Register;
@@ -33,13 +38,16 @@ impl ToTokens for RegisterDefinitionList {
             #[allow(non_snake_case)]
             #[repr(u8)]
             pub enum RegisterId {
-                // TODO 2024-05-18: NEED TO DEFINE REGISTER INDICES/DISCRIMINANTS SUCH AS:
-                // V0 = 0,
-                // V1 = 1,
-                // ETC FOR EACH REGISTER
-                // THEN, IMPL From<u8> FOR RegisterId
-                // THEN, IMPLEMENT RegisterId::get_by_index USING From<u8>
                 #(#enum_variants),*,
+            }
+
+            impl From<u8> for RegisterId {
+                fn from(value: u8) -> Self {
+                    match value {
+                        #(#match_arms),*,
+                        _ => panic!("Invalid register index: {}", value),
+                    }
+                }
             }
 
             impl RegisterId {
@@ -58,6 +66,7 @@ impl ToTokens for RegisterDefinitionList {
 }
 
 pub struct RegisterDefinition {
+    index: u8,
     name: Ident,
     typ: Type,
 }
@@ -65,8 +74,17 @@ pub struct RegisterDefinition {
 impl RegisterDefinition {
     pub fn get_enum_variant(&self) -> TokenStream2 {
         let name = &self.name;
+        let idx = self.index;
         quote! {
-            #name
+            #name = #idx
+        }
+    }
+
+    pub fn get_match_arms(&self) -> TokenStream2 {
+        let name = &self.name;
+        let idx = self.index;
+        quote! {
+            #idx => RegisterId::#name
         }
     }
 
@@ -85,7 +103,7 @@ impl Parse for RegisterDefinition {
         input.parse::<Token![:]>()?;
         let typ = input.parse()?;
 
-        Ok(RegisterDefinition { name, typ })
+        Ok(RegisterDefinition { name, typ, index: 0 })
     }
 }
 
