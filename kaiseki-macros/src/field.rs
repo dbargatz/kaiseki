@@ -166,7 +166,6 @@ impl Parse for SubfieldDefinition {
 
 impl ToTokens for SubfieldDefinition {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
-
         // TODO: allow docstrings/attributes in general on subfields
         let docstring = "/// TODO: Document this subfield".to_string();
 
