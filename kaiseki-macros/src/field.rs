@@ -1,7 +1,8 @@
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use syn::parse::{Parse, ParseStream};
-use syn::{braced, bracketed, Ident, PatRange, Token, Type};
+use syn::token::Brace;
+use syn::{braced, bracketed, Block, Ident, PatRange, Stmt, Token, Type};
 
 pub struct FieldDefinitionList {
     root_fields: Vec<RootFieldDefinition>,
@@ -34,7 +35,6 @@ impl ToTokens for FieldDefinitionList {
 pub struct RootFieldDefinition {
     name: Ident,
     typ: Type,
-    var_name: Ident,
     subfields: Vec<SubfieldDefinition>,
 }
 
@@ -44,13 +44,6 @@ impl Parse for RootFieldDefinition {
         let name = input.parse()?;
         input.parse::<Token![:]>()?;
         let typ = input.parse()?;
-
-        input.parse::<Token![=]>()?;
-
-
-        input.parse::<Token![|]>()?;
-        let var_name = input.parse::<Ident>()?;
-        input.parse::<Token![|]>()?;
 
         let content;
         let _ = braced!(content in input);
@@ -65,7 +58,6 @@ impl Parse for RootFieldDefinition {
         Ok(RootFieldDefinition {
             name,
             typ,
-            var_name,
             subfields,
         })
     }
@@ -77,26 +69,31 @@ impl ToTokens for RootFieldDefinition {
         let typ = &self.typ;
         let docstring = format!("/// TODO: Document this field");
 
+        let mut trait_tokens = TokenStream2::new();
         let mut subfield_tokens = TokenStream2::new();
         for field in &self.subfields {
+            match field {
+                SubfieldDefinition::Range { name, typ, var_name: _, range: _ } => {
+                    trait_tokens.extend(quote! {
+                        fn #name(&self) -> #typ;
+                    });
+                },
+                SubfieldDefinition::Extractor { name, typ, brace_token: _, stmts: _ } => {
+                    trait_tokens.extend(quote! {
+                        fn #name(&self) -> #typ;
+                    });
+                },
+            }
             field.to_tokens(&mut subfield_tokens);
         }
 
         tokens.extend(quote! {
             #[doc = #docstring]
-            pub struct #name {
-                value: #typ,
+            pub trait #name {
+                #trait_tokens
             }
 
-            impl #name {
-                pub fn new(value: #typ) -> Self {
-                    Self { value }
-                }
-
-                pub fn value(&self) -> #typ {
-                    self.value
-                }
-
+            impl #name for #typ {
                 #subfield_tokens
             }
         });
@@ -114,8 +111,8 @@ pub enum SubfieldDefinition {
     Extractor {
         name: Ident,
         typ: Type,
-        brace_token: syn::token::Brace,
-        stmts: Vec<syn::Stmt>,
+        brace_token: Brace,
+        stmts: Vec<Stmt>,
     },
 }
 
@@ -124,23 +121,9 @@ impl Parse for SubfieldDefinition {
         let name = input.parse()?;
         input.parse::<Token![:]>()?;
         let typ = input.parse()?;
-        input.parse::<Token![=]>()?;
 
-        if input.peek(syn::token::Brace) {
-            let content;
-            let _ = braced!(content in input);
-            let mut stmts = Vec::new();
-            while !content.is_empty() {
-                stmts.push(content.parse()?);
-            }
-
-            Ok(SubfieldDefinition::Extractor {
-                name,
-                typ,
-                brace_token: syn::token::Brace::default(),
-                stmts,
-            })
-        } else {
+        if input.peek(Token![=]) {
+            input.parse::<Token![=]>()?;
             let var_name = input.parse::<Ident>()?;
             let content;
             let _ = bracketed!(content in input);
@@ -152,6 +135,17 @@ impl Parse for SubfieldDefinition {
                 var_name,
                 range,
             })
+        } else {
+            let content;
+            let brace_token = braced!(content in input);
+            let stmts = content.call(Block::parse_within)?;
+
+            Ok(SubfieldDefinition::Extractor {
+                name,
+                typ,
+                brace_token,
+                stmts,
+            })
         } 
     }
 }
@@ -162,14 +156,14 @@ impl ToTokens for SubfieldDefinition {
             SubfieldDefinition::Range { name, typ, var_name: _, range: _ } => {
                 let mask = 0xFFu16;
                 tokens.extend(quote! {
-                    pub fn #name(&self) -> #typ {
+                    fn #name(&self) -> #typ {
                         (self.value & #mask) as #typ
                     }
                 });
             },
             SubfieldDefinition::Extractor { name, typ, brace_token: _, stmts } => {
                 tokens.extend(quote! {
-                    pub fn #name(&self) -> #typ {
+                    fn #name(&self) -> #typ {
                         #(#stmts)*
                     }
                 });

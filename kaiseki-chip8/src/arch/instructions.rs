@@ -44,6 +44,8 @@ instruction_set! {
 }
 
 pub mod chip8 {
+    use kaiseki_core::cpu::opcode::Opcode16;
+    use kaiseki_macros::fields;
     use kaiseki_macros::registers;
 
     registers! {
@@ -70,30 +72,17 @@ pub mod chip8 {
         ST: u8,
     }
 
+    fields! {
+        Opcode: Opcode16 {
+            kk: u8 { self.get_byte(0) },
+            nnn: u16 { self.value() & 0x0FFF },
+            x: RegisterId { RegisterId::get_by_index(self.get_nybble(2)) },
+            y: RegisterId { RegisterId::get_by_index(self.get_nybble(1)) },
+        },
+    }
+
     pub mod instructions {
-        use kaiseki_macros::fields;
-
-        fields! {
-            Opcode: u16 = |op| {
-                // becomes pub fn kk(&self) -> u8 { (self.value & 0x00FF) as u8 }
-                kk: u8 = op[0..=7],
-                // becomes pub fn nnn(&self) -> u16 { (self.value & 0x0FFF) as u16 }
-                nnn: u16 = op[0..=11],
-                x: super::RegisterId = {
-                    let value: u8 = ((self.value & 0x0F00) >> 8).try_into().unwrap();
-                    return super::RegisterId::get_by_index(value);
-                },
-                // becomes let y: RegisterId = { ... }
-                y: u8 = op[4..=7],
-                    // y: RegisterId = |raw: u16| {
-                    //     let value: u8 = (raw & 0x00F0) >> 4;
-                    //     RegisterId::get_by_index(value)
-                    // },
-            },
-            FlagsReg: u16 = |reg| {
-
-            }
-        }
+        
 
         // instructions! {
         //     ClearScreen { "CLS", 0x00E0 },
