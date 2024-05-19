@@ -73,10 +73,20 @@ pub mod chip8 {
     }
 
     fields! {
+        /// Common fields defined in CHIP-8 opcodes.
         Opcode: Opcode16 {
+            /// An embedded 8-bit constant in the lowest byte of the opcode. For example, for
+            /// opcode `0x3F28`, `kk = 0x3F28 & 0x00FF = 0x28`.
             kk: u8 { self.get_byte(0) },
+            /// An embedded 12-bit physical memory address in the lowest byte and low nybble of the
+            /// high byte of the opcode. For example, for opcode `0x3F28`,
+            /// `nnn = 0x3F28 & 0x0FFF = 0xF28`.
             nnn: u16 { self.value() & 0x0FFF },
+            /// An embedded 4-bit register index in the low nybble of the high byte of the opcode.
+            /// For example, for opcode `0x3F28`, `x = (0x3F28 & 0x0F00) >> 8 = 0xF`.
             x: RegisterId { RegisterId::get_by_index(self.get_nybble(2)) },
+            /// An embedded 4-bit register index in the high nybble of the low byte of the opcode.
+            /// For example, for opcode `0x3F28`, `x = (0x3F28 & 0x00F0) >> 4 = 0x2`.
             y: RegisterId { RegisterId::get_by_index(self.get_nybble(1)) },
         },
     }

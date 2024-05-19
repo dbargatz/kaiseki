@@ -2,7 +2,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use syn::parse::{Parse, ParseStream};
 use syn::token::Brace;
-use syn::{braced, bracketed, Block, Ident, PatRange, Stmt, Token, Type};
+use syn::{braced, bracketed, Attribute, Block, Ident, PatRange, Stmt, Token, Type};
 
 pub struct FieldDefinitionList {
     root_fields: Vec<RootFieldDefinition>,
@@ -33,6 +33,7 @@ impl ToTokens for FieldDefinitionList {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RootFieldDefinition {
+    attrs: Vec<Attribute>,
     name: Ident,
     typ: Type,
     subfields: Vec<SubfieldDefinition>,
@@ -40,6 +41,10 @@ pub struct RootFieldDefinition {
 
 impl Parse for RootFieldDefinition {
     fn parse(input: ParseStream) -> syn::Result<Self> {
+        // Parse any top-level outer attributes, such as doc comments. If any are present, they'll
+        // be re-emitted on the trait definition.
+        let attrs = input.call(Attribute::parse_outer)?;
+
         // Parse out the field name and type, which are required.
         let name = input.parse()?;
         input.parse::<Token![:]>()?;
@@ -56,6 +61,7 @@ impl Parse for RootFieldDefinition {
         }
 
         Ok(RootFieldDefinition {
+            attrs,
             name,
             typ,
             subfields,
@@ -65,11 +71,9 @@ impl Parse for RootFieldDefinition {
 
 impl ToTokens for RootFieldDefinition {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
+        let attrs = &self.attrs;
         let name = &self.name;
         let typ = &self.typ;
-
-        // TODO: allow docstrings/attributes in general on root fields
-        let docstring = "/// TODO: Document this field".to_string();
 
         let mut trait_tokens = TokenStream2::new();
         let mut subfield_tokens = TokenStream2::new();
@@ -78,6 +82,7 @@ impl ToTokens for RootFieldDefinition {
             // for trait fn defs
             match field {
                 SubfieldDefinition::Range {
+                    attrs: _,
                     name,
                     typ,
                     var_name: _,
@@ -88,6 +93,7 @@ impl ToTokens for RootFieldDefinition {
                     });
                 }
                 SubfieldDefinition::Extractor {
+                    attrs: _,
                     name,
                     typ,
                     brace_token: _,
@@ -102,7 +108,7 @@ impl ToTokens for RootFieldDefinition {
         }
 
         tokens.extend(quote! {
-            #[doc = #docstring]
+            #(#attrs)*
             pub trait #name {
                 #trait_tokens
             }
@@ -117,12 +123,14 @@ impl ToTokens for RootFieldDefinition {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SubfieldDefinition {
     Range {
+        attrs: Vec<Attribute>,
         name: Ident,
         typ: Type,
         var_name: Ident,
         range: PatRange,
     },
     Extractor {
+        attrs: Vec<Attribute>,
         name: Ident,
         typ: Type,
         brace_token: Brace,
@@ -132,6 +140,7 @@ pub enum SubfieldDefinition {
 
 impl Parse for SubfieldDefinition {
     fn parse(input: ParseStream) -> syn::Result<Self> {
+        let attrs = input.call(Attribute::parse_outer)?;
         let name = input.parse()?;
         input.parse::<Token![:]>()?;
         let typ = input.parse()?;
@@ -144,6 +153,7 @@ impl Parse for SubfieldDefinition {
             let range = content.parse()?;
 
             Ok(SubfieldDefinition::Range {
+                attrs,
                 name,
                 typ,
                 var_name,
@@ -155,6 +165,7 @@ impl Parse for SubfieldDefinition {
             let stmts = content.call(Block::parse_within)?;
 
             Ok(SubfieldDefinition::Extractor {
+                attrs,
                 name,
                 typ,
                 brace_token,
@@ -166,11 +177,9 @@ impl Parse for SubfieldDefinition {
 
 impl ToTokens for SubfieldDefinition {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
-        // TODO: allow docstrings/attributes in general on subfields
-        let docstring = "/// TODO: Document this subfield".to_string();
-
         match self {
             SubfieldDefinition::Range {
+                attrs,
                 name,
                 typ,
                 var_name: _,
@@ -178,20 +187,21 @@ impl ToTokens for SubfieldDefinition {
             } => {
                 let mask = 0xFFu16;
                 tokens.extend(quote! {
-                    #[doc = #docstring]
+                    #(#attrs)*
                     fn #name(&self) -> #typ {
                         (self.value & #mask) as #typ
                     }
                 });
             }
             SubfieldDefinition::Extractor {
+                attrs,
                 name,
                 typ,
                 brace_token: _,
                 stmts,
             } => {
                 tokens.extend(quote! {
-                    #[doc = #docstring]
+                    #(#attrs)*
                     fn #name(&self) -> #typ {
                         #(#stmts)*
                     }
