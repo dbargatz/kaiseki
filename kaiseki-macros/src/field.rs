@@ -67,11 +67,15 @@ impl ToTokens for RootFieldDefinition {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let name = &self.name;
         let typ = &self.typ;
-        let docstring = format!("/// TODO: Document this field");
+
+        // TODO: allow docstrings/attributes in general on root fields
+        let docstring = "/// TODO: Document this field".to_string();
 
         let mut trait_tokens = TokenStream2::new();
         let mut subfield_tokens = TokenStream2::new();
         for field in &self.subfields {
+            // TODO: Clean this up, shouldn't have Subfield.to_tokens() for fn bodies and then manual handling here
+            // for trait fn defs
             match field {
                 SubfieldDefinition::Range {
                     name,
@@ -162,6 +166,10 @@ impl Parse for SubfieldDefinition {
 
 impl ToTokens for SubfieldDefinition {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
+
+        // TODO: allow docstrings/attributes in general on subfields
+        let docstring = "/// TODO: Document this subfield".to_string();
+
         match self {
             SubfieldDefinition::Range {
                 name,
@@ -171,6 +179,7 @@ impl ToTokens for SubfieldDefinition {
             } => {
                 let mask = 0xFFu16;
                 tokens.extend(quote! {
+                    #[doc = #docstring]
                     fn #name(&self) -> #typ {
                         (self.value & #mask) as #typ
                     }
@@ -183,6 +192,7 @@ impl ToTokens for SubfieldDefinition {
                 stmts,
             } => {
                 tokens.extend(quote! {
+                    #[doc = #docstring]
                     fn #name(&self) -> #typ {
                         #(#stmts)*
                     }
