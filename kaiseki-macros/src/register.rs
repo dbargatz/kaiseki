@@ -31,8 +31,21 @@ impl ToTokens for RegisterDefinitionList {
             use kaiseki_core::register::Register;
 
             #[allow(non_snake_case)]
+            #[repr(u8)]
             pub enum RegisterId {
+                // TODO 2024-05-18: NEED TO DEFINE REGISTER INDICES/DISCRIMINANTS SUCH AS:
+                // V0 = 0,
+                // V1 = 1,
+                // ETC FOR EACH REGISTER
+                // THEN, IMPL From<u8> FOR RegisterId
+                // THEN, IMPLEMENT RegisterId::get_by_index USING From<u8>
                 #(#enum_variants),*,
+            }
+
+            impl RegisterId {
+                pub fn get_by_index(index: u8) -> Self {
+                    index.into()
+                }
             }
 
             #[derive(Clone, Debug, Default)]

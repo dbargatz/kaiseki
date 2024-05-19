@@ -44,6 +44,32 @@ instruction_set! {
 }
 
 pub mod chip8 {
+    use kaiseki_macros::registers;
+
+    registers! {
+        V0: u8,
+        V1: u8,
+        V2: u8,
+        V3: u8,
+        V4: u8,
+        V5: u8,
+        V6: u8,
+        V7: u8,
+        V8: u8,
+        V9: u8,
+        VA: u8,
+        VB: u8,
+        VC: u8,
+        VD: u8,
+        VE: u8,
+        VF: u8,
+        VI: u16,
+        PC: u16,
+        SP: u8,
+        DT: u8,
+        ST: u8,
+    }
+
     pub mod instructions {
         use kaiseki_macros::fields;
 
@@ -53,12 +79,10 @@ pub mod chip8 {
                 kk: u8 = op[0..=7],
                 // becomes pub fn nnn(&self) -> u16 { (self.value & 0x0FFF) as u16 }
                 nnn: u16 = op[0..=11],
-                // becomes let x: RegisterId = { ... }
-                x: u8 = op[8..=11],
-                    // x: RegisterId = |raw| {
-                    //     let value: u8 = (raw & 0x0F00) >> 8;
-                    //     RegisterId::get_by_index(value)
-                    // },
+                x: super::RegisterId = {
+                    let value: u8 = ((self.value & 0x0F00) >> 8).try_into().unwrap();
+                    return super::RegisterId::get_by_index(value);
+                },
                 // becomes let y: RegisterId = { ... }
                 y: u8 = op[4..=7],
                     // y: RegisterId = |raw: u16| {

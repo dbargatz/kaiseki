@@ -1,6 +1,10 @@
 use crate::arch::instructions::{
     Call, Chip8Instruction, Chip8InstructionId, ClearScreen, ExecuteMachineSubroutine, Jump,
-    Return, SkipIfEqual, SkipIfNotEqual,
+    Return, SkipIfEqual, SkipIfNotEqual, SkipIfRegEqual, SetReg, AddReg, SetRegReg, OrRegReg,
+    AndRegReg, XorRegReg, AddRegReg, SubRegReg, ShiftRightReg, SubRegRegReverse, ShiftLeftReg,
+    SkipIfRegNotEqual, SetVI, JumpPlusV0, Random, Draw, SkipIfKeyPressed, SkipIfKeyNotPressed,
+    GetDelayTimer, WaitForKey, SetDelayTimer, SetSoundTimer, AddRegVI, SetVIDigit, StoreBCD,
+    StoreRegs, LoadRegs
 };
 use kaiseki_core::arch::instruction::Instruction;
 use kaiseki_core::cpu::decoder::{DecodeError, DecodeOne, Result};
@@ -21,16 +25,72 @@ impl DecodeOne for Chip8Decoder {
     fn decode_one(&self, bytes: &[u8]) -> Result<Self::Instruction> {
         let opcode = Opcode16::from_be_bytes(bytes);
 
-        let ins: Self::Instruction = match opcode.value() {
-            0x0000..=0x0FFF => match opcode.value() {
+        // let ins: Self::Instruction = match opcode.value() {
+        //     0x0000..=0x0FFF => match opcode.value() {
+        //         0x00E0 => Box::new(ClearScreen::create(opcode.value())),
+        //         0x00EE => Box::new(Return::create(opcode.value())),
+        //         _ => Box::new(ExecuteMachineSubroutine::create(opcode.value())),
+        //     },
+        //     0x1000..=0x1FFF => Box::new(Jump::create(opcode.value())),
+        //     0x2000..=0x2FFF => Box::new(Call::create(opcode.value())),
+        //     0x3000..=0x3FFF => Box::new(SkipIfEqual::create(opcode.value())),
+        //     0x4000..=0x4FFF => Box::new(SkipIfNotEqual::create(opcode.value())),
+        //     _ => Err(DecodeError::UnimplementedOpcode)?,
+        // };
+
+        let ins: Self::Instruction = match opcode.get_nybble(3) {
+            0x0 => match opcode.value() {
                 0x00E0 => Box::new(ClearScreen::create(opcode.value())),
                 0x00EE => Box::new(Return::create(opcode.value())),
                 _ => Box::new(ExecuteMachineSubroutine::create(opcode.value())),
             },
-            0x1000..=0x1FFF => Box::new(Jump::create(opcode.value())),
-            0x2000..=0x2FFF => Box::new(Call::create(opcode.value())),
-            0x3000..=0x3FFF => Box::new(SkipIfEqual::create(opcode.value())),
-            0x4000..=0x4FFF => Box::new(SkipIfNotEqual::create(opcode.value())),
+            0x1 => Box::new(Jump::create(opcode.value())),
+            0x2 => Box::new(Call::create(opcode.value())),
+            0x3 => Box::new(SkipIfEqual::create(opcode.value())),
+            0x4 => Box::new(SkipIfNotEqual::create(opcode.value())),
+            0x5 => match opcode.get_nybble(0) {
+                0x0 => Box::new(SkipIfRegEqual::create(opcode.value())),
+                _ => Err(DecodeError::UnimplementedOpcode)?,
+            },
+            0x6 => Box::new(SetReg::create(opcode.value())),
+            0x7 => Box::new(AddReg::create(opcode.value())),
+            0x8 => match opcode.get_nybble(0) {
+                0x0 => Box::new(SetRegReg::create(opcode.value())),
+                0x1 => Box::new(OrRegReg::create(opcode.value())),
+                0x2 => Box::new(AndRegReg::create(opcode.value())),
+                0x3 => Box::new(XorRegReg::create(opcode.value())),
+                0x4 => Box::new(AddRegReg::create(opcode.value())),
+                0x5 => Box::new(SubRegReg::create(opcode.value())),
+                0x6 => Box::new(ShiftRightReg::create(opcode.value())),
+                0x7 => Box::new(SubRegRegReverse::create(opcode.value())),
+                0xE => Box::new(ShiftLeftReg::create(opcode.value())),
+                _ => Err(DecodeError::UnimplementedOpcode)?,
+            },
+            0x9 => match opcode.get_nybble(0) {
+                0x0 => Box::new(SkipIfRegNotEqual::create(opcode.value())),
+                _ => Err(DecodeError::UnimplementedOpcode)?,
+            },
+            0xA => Box::new(SetVI::create(opcode.value())),
+            0xB => Box::new(JumpPlusV0::create(opcode.value())),
+            0xC => Box::new(Random::create(opcode.value())),
+            0xD => Box::new(Draw::create(opcode.value())),
+            0xE => match opcode.get_byte(0) {
+                0x9E => Box::new(SkipIfKeyPressed::create(opcode.value())),
+                0xA1 => Box::new(SkipIfKeyNotPressed::create(opcode.value())),
+                _ => Err(DecodeError::UnimplementedOpcode)?,
+            },
+            0xF => match opcode.get_byte(0) {
+                0x07 => Box::new(GetDelayTimer::create(opcode.value())),
+                0x0A => Box::new(WaitForKey::create(opcode.value())),
+                0x15 => Box::new(SetDelayTimer::create(opcode.value())),
+                0x18 => Box::new(SetSoundTimer::create(opcode.value())),
+                0x1E => Box::new(AddRegVI::create(opcode.value())),
+                0x29 => Box::new(SetVIDigit::create(opcode.value())),
+                0x33 => Box::new(StoreBCD::create(opcode.value())),
+                0x55 => Box::new(StoreRegs::create(opcode.value())),
+                0x65 => Box::new(LoadRegs::create(opcode.value())),
+                _ => Err(DecodeError::UnimplementedOpcode)?,
+            },
             _ => Err(DecodeError::UnimplementedOpcode)?,
         };
         Ok(ins)
@@ -94,7 +154,13 @@ mod tests {
     fn test_valid_opcodes_0x5xy0() {
         for opcode in 0x5000u16..=0x5FFFu16 {
             let result = basic_harness(opcode);
-            assert_eq!(result.unwrap_err(), DecodeError::UnimplementedOpcode);
+            if opcode & 0x000F != 0x0 {
+                assert!(result.is_err());
+            } else {
+                assert!(result.is_ok());
+                let instruction = result.unwrap();
+                assert_eq!(Chip8InstructionId::SkipIfRegEqual, instruction.id());
+            }
             // assert!(result.is_ok());
             // let instruction = result.unwrap();
             // match instruction {
