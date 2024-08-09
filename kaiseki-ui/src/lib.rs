@@ -67,7 +67,7 @@ pub fn create_ui(vex: Vex, start_tx: Sender<bool>) -> Result<()> {
         options,
         Box::new(|cc| {
             egui_extras::install_image_loaders(&cc.egui_ctx);
-            Box::new(KaisekiUiApp::new(vex, start_tx))
+            Ok(Box::new(KaisekiUiApp::new(vex, start_tx)))
         }),
     );
     match res {
