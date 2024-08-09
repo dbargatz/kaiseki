@@ -1,4 +1,4 @@
-FROM rust:1.78.0-bookworm AS devcontainer
+FROM rust:1.80.1-bookworm AS devcontainer
 
 # Create a non-root user for the container using the given ARGs, which allows
 # the X11 socket on the host to be accessed without hacky workarounds such as
@@ -17,6 +17,8 @@ RUN set -x \
 # Install packages necessary for development and for the UI to launch from
 # inside the Docker container.
 RUN set -x \
+    # Move over to https source fetching so it'll work on plane wifi.
+    && sed -i s#http://deb.debian#https://deb.debian#g /etc/apt/sources.list.d/debian.sources \
     && apt-get update --yes  \
     && apt-get install --yes --no-install-recommends \
         # In theory, egui should only require libgtk-3-0 (not the dev package),
