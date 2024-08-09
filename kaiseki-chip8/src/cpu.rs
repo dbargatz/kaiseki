@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::u8;
 
 use async_trait::async_trait;
 use thiserror::Error;
