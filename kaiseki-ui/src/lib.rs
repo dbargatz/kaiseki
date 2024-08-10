@@ -51,6 +51,11 @@ impl eframe::App for KaisekiUiApp {
                 ui.allocate_space(ui.available_size());
             });
 
+        // This effectively queues up the next frame to be drawn as soon as possible after the
+        // current frame is done drawing; without this, frames will only be rendered if input
+        // (mouse, keyboard, etc) occurs.
+        ctx.request_repaint();
+
         if self.start_tx.is_some() && ctx.frame_nr() > 0 {
             let start_tx = std::mem::take(&mut self.start_tx).unwrap();
             let _ = start_tx.send(true);
