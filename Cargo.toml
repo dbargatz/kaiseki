@@ -16,7 +16,7 @@ members = [
 [dependencies]
 anyhow = { version = "1" }
 clap = { version = "4", features = ["derive"] }
-console-subscriber = { version = "0.1" }
+console-subscriber = { version = "0.4" }
 kaiseki-chip8 = { path = "kaiseki-chip8" }
 kaiseki-core = { path = "kaiseki-core" }
 kaiseki-macros = { path = "kaiseki-macros" }
