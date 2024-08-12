@@ -38,7 +38,6 @@ RUN set -x \
 # which causes permissions issues for cargo and rust-analyzer when run as the
 # container user.
 USER ${UID}:${GID}
-ENV DISPLAY=:0
 
 # Install Rust format/lint/test/profiling tools.
 RUN set -x \
