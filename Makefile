@@ -1,3 +1,5 @@
+ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+
 .PHONY: build
 build:
 	cargo auditable build --release
@@ -20,12 +22,12 @@ format:
 	cargo fmt --all
 
 .PHONY: lint
-lint: KAISEKI_TARGET_DIR=$(ROOT)/target/debug/kaiseki
+lint: KAISEKI_TARGET_DIR=$(ROOT_DIR)/target/debug/kaiseki
 lint:
 	cargo fmt --all --check
 	cargo auditable clippy
 	cargo audit
-	cargo audit bin $(TARGET_DIR)
+	cargo audit bin $(KAISEKI_TARGET_DIR)
 
 .PHONY: run
 run: KAISEKI_MACHINE=chip8
