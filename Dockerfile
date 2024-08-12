@@ -43,7 +43,18 @@ USER ${UID}:${GID}
 RUN set -x \
     && rustup component add rustfmt \
     && rustup component add clippy \
-    && cargo install cargo-audit \
-    # Inferno allows generation of flamegraphs for profiling, using data from
-    # tracing_flame. https://docs.rs/inferno/latest/inferno/
-    && cargo install inferno
+    && cargo install \
+        # Cargo-auditable embeds the full crate dependency tree and versions in
+        # a special linker section of the built binaries, allowing cargo-audit
+        # to find known vulns in a specific build of a binary, rather than only
+        # in the Cargo.lock file. See:
+        # https://docs.rs/crate/cargo-auditable/latest
+        cargo-auditable \
+        # Cargo-audit reports on known vulns in the full crate dependency tree
+        # of a Cargo.lock file (or, with cargo-auditable installed, a built
+        # binary). See: https://docs.rs/crate/cargo-audit/latest
+        cargo-audit \
+        # Inferno allows generation of SVG flamegraphs and flamecharts for
+        # profiling, using data from tracing_flame. See:
+        # https://docs.rs/crate/inferno/latest
+        inferno
