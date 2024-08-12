@@ -4,6 +4,8 @@ use clap::{Parser, ValueEnum};
 use kaiseki_chip8::machine::Chip8Machine;
 use kaiseki_core::Vex;
 use kaiseki_ui::create_ui;
+
+#[cfg(debug_assertions)]
 use tracing_flame::FlameLayer;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
