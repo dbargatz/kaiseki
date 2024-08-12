@@ -40,8 +40,11 @@ RUN set -x \
 USER ${UID}:${GID}
 ENV DISPLAY=:0
 
-# Install Rust format/lint tools.
+# Install Rust format/lint/test/profiling tools.
 RUN set -x \
     && rustup component add rustfmt \
     && rustup component add clippy \
-    && cargo install cargo-audit
+    && cargo install cargo-audit \
+    # Inferno allows generation of flamegraphs for profiling, using data from
+    # tracing_flame. https://docs.rs/inferno/latest/inferno/
+    && cargo install inferno
