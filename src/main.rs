@@ -13,11 +13,21 @@ enum SupportedMachines {
     Chip8,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+enum UiOptions {
+    ///! An interactive, shell-based UI. Does not display graphics.
+    Monitor,
+    ///! A graphical UI using the X11 protocol.
+    X11,
+}
+
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
     #[clap(value_enum, value_parser, short, long)]
     machine: SupportedMachines,
+    #[clap(value_enum, value_parser, short, long)]
+    ui: UiOptions,
 }
 
 fn create_tokio_runtime() -> tokio::runtime::Runtime {
@@ -32,6 +42,7 @@ fn main() -> Result<()> {
 
     let args = Args::parse();
     let machine_type = args.machine;
+    let ui_type = args.ui;
     let guest = match machine_type {
         SupportedMachines::Chip8 => {
             let machine = Chip8Machine::new()?;
@@ -51,10 +62,17 @@ fn main() -> Result<()> {
         });
     });
 
-    tracing::info!("creating UI");
-    if let Err(err) = create_ui(ui_guest, start_tx) {
-        tracing::warn!("could not create UI: {}", err);
-    };
+    match ui_type {
+        UiOptions::Monitor => {
+            tracing::info!("using monitor, not creating window");
+            let _ = start_tx.send(true);
+        }
+        UiOptions::X11 => {
+            if let Err(err) = create_ui(ui_guest, start_tx) {
+                tracing::warn!("could not create UI: {}", err);
+            };
+        }
+    }
 
     tracing::info!("waiting for emulator thread");
     let _ = emulator_thread.join();
