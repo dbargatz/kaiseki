@@ -31,8 +31,9 @@ lint:
 
 .PHONY: run
 run: KAISEKI_MACHINE=chip8
+run: KAISEKI_UI=monitor
 run:
-	cargo auditable run -- --machine $(KAISEKI_MACHINE)
+	cargo auditable run -- --machine $(KAISEKI_MACHINE) --ui $(KAISEKI_UI)
 
 .PHONY: test
 test:
